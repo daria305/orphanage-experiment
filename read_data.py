@@ -4,39 +4,63 @@ import time
 import pandas as pd
 import os
 
-startPath = "data/orphanage/30mpsDur8"
-
-
 
 def read_data(path_to_data):
+    file_names = []
+    file_paths = []
+    for paths, _, files in os.walk(path_to_data):
+        if len(files) > 0:
+            file_names.extend(files)
+            file_paths.extend([paths] * len(files))
 
-    file_names = [files for _, _, files in os.walk(path_to_data)]
-    for file in file_names[0]:
+    mpsi_file = []
+    mpst_file = []
+    tips_file = []
+    finalization_file = []
+    orphanage_file = []
+
+    for file, path in zip(file_names, file_paths):
         if file == "" or file[-4:] == ".csv":
             if file.startswith('Message Per Second Per Issuer'):
-                mpsi_file = os.path.join(path_to_data, file)
-                mpsi_df = read_grafana_file(mpsi_file, "mps")
+                mpsi_file.append(os.path.join(path, file))
 
             if file.startswith('Message Per Second Per Type'):
-                mpst_file = os.path.join(path_to_data, file)
-                mpst_df = read_grafana_file(mpst_file, "mps")
+                mpst_file.append(os.path.join(path, file))
 
             if file.startswith('Tips'):
-                tips_file = os.path.join(path_to_data, file)
-                tips_df = read_grafana_file(tips_file, "num")
+                tips_file.append(os.path.join(path, file))
 
             if file.startswith('Message Finalization'):
-                finalization_file = os.path.join(path_to_data, file)
-                finalization_df = read_grafana_file(finalization_file, "times")
+                finalization_file.append(os.path.join(path, file))
 
             if file.startswith('orphanage'):
-                orphanage_file = os.path.join(path_to_data, file)
-                orphanage_df = read_orphanage_file(orphanage_file)
+                orphanage_file.append(os.path.join(path, file))
+    # read the data to pandas
+    tips_df = save_grafana_files_to_df(tips_file, "num")
+    mpst_df = save_grafana_files_to_df(mpst_file, "mps")
+    mpsi_df = save_grafana_files_to_df(mpsi_file, "mps")
+    finalization_df = save_grafana_files_to_df(finalization_file, "times")
+
+    orphanage_df = save_orphanage_files_to_df(orphanage_file)
 
     return mpsi_df, mpst_df, tips_df, finalization_df, orphanage_df
 
 
-def read_grafana_file(file, type):
+def save_grafana_files_to_df(files, data_type):
+    df = None
+    for file in files:
+        df = read_grafana_file(file, data_type, df)
+    return df
+
+
+def save_orphanage_files_to_df(files):
+    df = None
+    for file in files:
+        df = read_orphanage_file(file, df)
+    return df
+
+
+def read_grafana_file(file, type, existing_df):
     with open(file) as rf:
         df = pd.read_csv(rf, sep=',')
     df.dropna(how='any', thresh=2, axis=0, inplace=True)
@@ -46,19 +70,30 @@ def read_grafana_file(file, type):
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_times)
     elif type == "num":
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_num)
+    df["Time"] = pd.to_datetime(df["Time"])
 
-    return df
+    if existing_df is not None:
+        existing_df = existing_df.append(df, ignore_index=True)
+    else:
+        existing_df = df
+
+    return existing_df
 
 
-def read_orphanage_file(file):
+def read_orphanage_file(file, existing_df):
     results_col = ["expId", "q", "mps", "honestOrphanageRate", "advOrphanageRate", "totalOrphans", "honestOrphans",
                    "advOrphans", "totalIssued", "honestIssued", "advIssued", "requester", "attackDuration",
                    "intervalNum", "intervalStart", "intervalStop"]
     with open(file) as rf:
         df = pd.read_csv(rf, sep=',')
-    df.columns = results_col
-
-    return df
+    df["intervalStart"] = pd.to_datetime(df["intervalStart"], unit='us')
+    df["intervalStop"] = pd.to_datetime(df["intervalStop"], unit='us')
+    if existing_df is None:
+        df.columns = results_col
+        existing_df = df
+    else:
+        existing_df = existing_df.append(df, ignore_index=True)
+    return existing_df
 
 
 def parse_mps(cell):
