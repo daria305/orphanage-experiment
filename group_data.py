@@ -7,22 +7,21 @@ critical_points = {'k=2': [0.5, 0.53, 0.55], 'k=4': []}
 MAX_PARENT_AGE = np.timedelta64(1, 'm')
 
 adversary_mpsi_name = "Message Per Second issued by adversary:9311"
-adversary_mpsi_name = "Message Per Second issued by adversary:9311"
 
 # ############## grafana data ######################
 
 
-def only_honest_df(grafana_df, cols):
+def exclude_columns(grafana_df, cols):
     return grafana_df.loc[:, ~grafana_df.columns.isin(cols)]
 
 
 def add_median_column(df):
-    df["Median"] = only_honest_df(df, [timeCol, advCol]).median(axis=1)
+    df["Median"] = exclude_columns(df, [timeCol, advCol]).median(axis=1)
     return df
 
 
 def add_max_column(df):
-    df["Max"] = only_honest_df(df, [timeCol]).max(axis=1)
+    df["Max"] = exclude_columns(df, [timeCol]).max(axis=1)
     return df
 
 

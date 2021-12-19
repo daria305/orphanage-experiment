@@ -5,13 +5,29 @@ import pandas as pd
 import os
 
 
-def read_data(path_to_data):
+def get_file_paths(path_to_data):
     file_names = []
     file_paths = []
     for paths, _, files in os.walk(path_to_data):
         if len(files) > 0:
             file_names.extend(files)
             file_paths.extend([paths] * len(files))
+    path_file = zip(file_paths, file_names)
+    sorted_tuples = sorted(path_file, key=sort_by_sub_dir)
+    lists = list(zip(*sorted_tuples))
+    file_paths = lists[0]
+    file_names = lists[1]
+    return file_paths, file_names
+
+
+def sort_by_sub_dir(zipped):
+    path, _ = zipped
+    catalog_num = int(path.split("/")[-1])
+    return catalog_num
+
+
+def read_data(path_to_data):
+    file_paths, file_names = get_file_paths(path_to_data)
 
     mpsi_file = []
     mpst_file = []
@@ -137,7 +153,7 @@ def parse_num(cell):
 
 
 if __name__ == "__main__":
-    DATA_PATH = "data/orphanage/equalSnapshot/30mpsDur8"
+    DATA_PATH = "data/orphanage/final/k_4"
     mpsi_df, mpst_df, tips_df, finalization_df, orphanage_df = read_data(DATA_PATH)
     print(mpsi_df.head())
     print(mpst_df.head())
@@ -146,3 +162,4 @@ if __name__ == "__main__":
     print(tips_df.head())
     print(finalization_df.head())
     print(orphanage_df.head())
+    get_file_paths(DATA_PATH)

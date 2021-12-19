@@ -2,8 +2,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from read_data import read_data
-from group_data import add_median_column,add_max_column, find_the_best_orphanage, assign_q_values, setup_rolling_count, group_tips_by_q, group_times_by_q
-from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, plot_grafana_times_q_for_all_k
+from group_data import add_median_column,add_max_column, find_the_best_orphanage, assign_q_values, setup_rolling_count, group_tips_by_q, group_times_by_q, exclude_columns
+from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
+    plot_grafana_times_q_for_all_k, plot_tips_final_times
+
+timeCol = "Time"
+advCol = "Tips adversary:9311"
 
 DATA_PATH_K2 = "data/orphanage/final/k_2"
 DATA_PATH_K4 = "data/orphanage/final/k_4"
@@ -11,10 +15,9 @@ DATA_PATH_K8 = "data/orphanage/final/k_8"
 
 Ks = [2, 4, 8]
 
-K2_Qs = [0.53, 0.55]
+K2_Qs = [0.5, 0.53, 0.55]
 K4_Qs = [0.65, 0.7, 0.75, 0.8]
-K8_Qs = [0.65, 0.7, 0.75]
-
+K8_Qs = [0.65, 0.7, 0.75, 0.8, 0.88, 0.93]
 
 
 def analyse_tips(df):
@@ -34,9 +37,9 @@ def orphanage_by_time():
     _, _, _, _, orphanage_df_k4 = read_data(DATA_PATH_K4)
     _, _, _, _, orphanage_df_k8 = read_data(DATA_PATH_K8)
 
-    plot_cumulative_orphanage_by_time(orphanage_df_k2, K2_Qs)
-    plot_cumulative_orphanage_by_time(orphanage_df_k4, K4_Qs)
-    plot_cumulative_orphanage_by_time(orphanage_df_k8, K8_Qs)
+    plot_cumulative_orphanage_by_time(orphanage_df_k2, K2_Qs, "orphanage_k2")
+    plot_cumulative_orphanage_by_time(orphanage_df_k4, K4_Qs, "orphanage_k4")
+    plot_cumulative_orphanage_by_time(orphanage_df_k8, K8_Qs, "orphanage_k8")
 
 
 def tips_per_q():
@@ -49,7 +52,7 @@ def tips_per_q():
         tips_df, mpsi_df, conf_df = assign_q_values(tips_df, mpsi_df, conf_df, orphanage_df)
         tips_df = add_median_column(tips_df)
         conf_df = add_max_column(conf_df)
-        conf_df["Max"] = conf_df["Max"] // 1000000000  # convert to seconds
+        conf_df["Max"] = conf_df["Max"] / float(1000000000 * 60)  # convert to seconds
         # group by q for the plots
         tips_by_q_df = group_tips_by_q(tips_df)
         conf_by_q_df = group_times_by_q(conf_df)
@@ -61,13 +64,22 @@ def tips_per_q():
     plot_grafana_times_q_for_all_k(Ks, conf_dfs)
 
 
+def grafana_like_plots():
+    paths = [DATA_PATH_K2, DATA_PATH_K4, DATA_PATH_K8]
+    for i, k in enumerate(Ks):
+        setup_rolling_count()
+        mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
+        tips_df, mpsi_df, conf_df = assign_q_values(tips_df, mpsi_df, conf_df, orphanage_df)
+
+        plot_tips_final_times(tips_df, conf_df, k)
+
 
 if __name__ == "__main__":
     # tips_df = add_stat_columns(tips_df)
 
     # the_best_orphanage_start_and_stop_points(orphanage_df)
 
-    # analyse_tips(tips_df)
-    # orphanage_by_time()
+    orphanage_by_time()
     tips_per_q()
 
+    grafana_like_plots()
