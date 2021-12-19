@@ -20,6 +20,11 @@ def add_median_column(df):
     return df
 
 
+def add_avg_column(df):
+    df["Avg"] = exclude_columns(df, [timeCol, advCol]).mean(axis=1)
+    return df
+
+
 def add_max_column(df):
     df["Max"] = exclude_columns(df, [timeCol]).max(axis=1)
     return df
@@ -249,6 +254,11 @@ def create_orphanage_summary(orphanage_df):
     # k=2
 
     a, c = find_the_best_orphanage(orphanage_df, 0.5, 50, 5)
+
+
+
+
+
 
 
 if __name__ == "__main__":

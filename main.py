@@ -3,9 +3,9 @@ from matplotlib import pyplot as plt
 
 from read_data import read_data
 from group_data import add_median_column, add_max_column, find_the_best_orphanage, assign_q_values, setup_rolling_count, \
-    group_tips_by_q, group_times_by_q, exclude_columns, filter_by_qs
+    group_tips_by_q, group_times_by_q, exclude_columns, filter_by_qs, add_avg_column
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
-    plot_grafana_times_q_for_all_k, plot_tips_final_times
+    plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite
 
 timeCol = "Time"
 advCol = "Tips adversary:9311"
@@ -13,6 +13,11 @@ advCol = "Tips adversary:9311"
 DATA_PATH_K2 = "data/orphanage/final/k_2"
 DATA_PATH_K4 = "data/orphanage/final/k_4"
 DATA_PATH_K8 = "data/orphanage/final/k_8"
+
+DATA_PATH_INF_K2_0 = "data/orphanage/final-infinite-age/k_2/0"
+DATA_PATH_INF_K2_1 = "data/orphanage/final-infinite-age/k_2/1"
+DATA_PATH_INF_K4_0 = "data/orphanage/final-infinite-age/k_4/0"
+DATA_PATH_INF_K8_0 = "data/orphanage/final-infinite-age/k_8/0"
 
 Ks = [2, 4, 8]
 
@@ -92,6 +97,40 @@ def grafana_like_plots():
         plot_tips_final_times(tips_df, conf_df, k)
 
 
+def infinite_tips_plots():
+    paths = [DATA_PATH_INF_K2_0, DATA_PATH_INF_K2_1, DATA_PATH_INF_K4_0]
+    qs = [0.5, 0.75, 0.5]
+    ks = [2, 2, 4]
+
+    tips_dfs = []
+    for i, k in enumerate(ks):
+        mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
+        tips_df = add_avg_column(tips_df)
+        tips_dfs.append(tips_df)
+    plot_tips_infinite(tips_dfs, ks, qs)
+
+
+def infinite_times_plots():
+    ks = [2, 4]
+    q_for_k = {
+        2: [0.5, 0.75],
+        4: [0.5],
+        8: []
+    }
+    paths_for_k = {
+        2: [DATA_PATH_INF_K2_0, DATA_PATH_INF_K2_1],
+        4: [DATA_PATH_INF_K4_0],
+        8: []
+    }
+    for i, k in enumerate(ks):
+        conf_dfs = []
+        for j, q in enumerate(q_for_k[k]):
+            path = paths_for_k[k][j]
+            mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(path)
+            conf_dfs.append(conf_df)
+        plot_times_infinite(conf_dfs, k, q_for_k[k])
+
+
 if __name__ == "__main__":
     # tips_df = add_stat_columns(tips_df)
 
@@ -99,5 +138,6 @@ if __name__ == "__main__":
 
     orphanage_by_time()
     tips_per_q()
-
     grafana_like_plots()
+    infinite_tips_plots()
+    infinite_times_plots()

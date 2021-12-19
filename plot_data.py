@@ -96,10 +96,10 @@ def plot_tips_final_times(tips_df, conf_df, k):
 
     # create x axes
     tips_df = tips_df.assign(duration=grafana_time_diff)
-    tips_df['duration'] = tips_df['duration'].cumsum().apply(lambda x: int(x))
+    tips_df['duration'] = tips_df['duration'].cumsum().apply(lambda x: x)
 
     conf_df = conf_df.assign(duration=grafana_time_diff)
-    conf_df['duration'] = conf_df['duration'].cumsum().apply(lambda x: int(x))
+    conf_df['duration'] = conf_df['duration'].cumsum().apply(lambda x: x)
 
     tips_cols = exclude_columns(tips_df, [timeCol, advCol, 'exp', 'q', 'duration']).columns
     conf_cols = exclude_columns(conf_df, [timeCol, "Msg finalization ", 'exp', 'q', 'duration']).columns
@@ -123,3 +123,50 @@ def plot_tips_final_times(tips_df, conf_df, k):
     plt.savefig("grafana_like_conf_time_k" + str(k) + '.pdf', format='pdf')
 
     # plt.show()
+
+
+# ################### Infinite parent age check ###########################
+
+
+def plot_tips_infinite(tips_dfs, ks, qs):
+    file_name = "infinite-tips-critical"
+    grafana_time_diff = float(1)/6  # minutes
+    plt.figure(figsize=FIG_SIZE)
+
+    for i, df in enumerate(tips_dfs):
+        df = df.assign(duration=grafana_time_diff)
+        df['duration'] = df['duration'].cumsum().apply(lambda x: x)
+
+        a = df['duration']
+        b = df['Avg']
+        plt.plot(a, b, label="k={}, q={}".format(ks[i], qs[i]), linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
+
+        plt.legend(loc='best', fontsize=MEDIUM_SIZE)
+        plt.xlabel("Time [min]", fontsize=MEDIUM_SIZE)
+        plt.ylabel("Tip Pool Size", fontsize=MEDIUM_SIZE)
+        plt.xlim([0, 125])
+        plt.savefig(file_name + '.pdf', format='pdf')
+
+
+def plot_times_infinite(times_dfs, k, qs):
+    grafana_time_diff = float(1)/6  # minutes
+    plt.figure(figsize=FIG_SIZE)
+    file_name = "infinite-times-critical_k_{}".format(k)
+
+    for i, df in enumerate(times_dfs):
+        df = df.assign(duration=grafana_time_diff)
+        df['duration'] = df['duration'].cumsum().apply(lambda x: x)
+        conf_cols = exclude_columns(df, [timeCol, "Msg finalization ", 'exp', 'q', 'duration']).columns
+        q = qs[i]
+        for j, col in enumerate(conf_cols):
+            labels = ["q={}".format(q)]
+            labels.extend([""]*(len(conf_cols)-1))
+            plt.plot(df['duration'], df[col], linewidth=0, label=labels[j], color=COLORS[i], marker='.', )
+        plt.legend(loc='best', fontsize=MEDIUM_SIZE)
+
+        plt.ylabel("Confirmation times [min]", fontsize=MEDIUM_SIZE)
+        plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
+
+        plt.savefig(file_name + '.pdf', format='pdf')
+
+
