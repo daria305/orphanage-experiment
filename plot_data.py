@@ -33,7 +33,9 @@ def plot_cumulative_orphanage_by_time(df, qs):
     plt.figure(figsize=FIG_SIZE)
     for i, q in enumerate(qs):
         df_per_q = orphanage_to_time(df, q, False)
-        print()
+        a = df_per_q['Time']
+        b = df_per_q['Orphanage']
+        print(type(a), type(b))
         plt.plot(df_per_q['Time'], df_per_q['Orphanage'], label="q={}".format(q),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
 
@@ -42,3 +44,26 @@ def plot_cumulative_orphanage_by_time(df, qs):
     plt.ylabel("Orphanage", fontsize=MEDIUM_SIZE)
     plt.savefig(orphanage_filename + '.pdf', format='pdf')
     plt.show()
+
+
+def plot_grafana_tips_q_for_all_k(ks, tips_dfs):
+    plt.figure(figsize=FIG_SIZE)
+    for i, df in enumerate(tips_dfs):
+        a = df['q']
+        b = df['Tip Pool Size']
+        plt.plot(a, b, label="k={}".format(ks[i]),
+                 linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
+    plt.legend(loc='best')
+    plt.show()
+
+
+def plot_grafana_times_q_for_all_k(ks, tips_dfs):
+    plt.figure(figsize=FIG_SIZE)
+    for i, df in enumerate(tips_dfs):
+        a = df['q']
+        b = df['Max Finalization Time']
+        plt.plot(a, b, label="k={}".format(ks[i]),
+                 linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
+    plt.legend(loc='best')
+    plt.show()
+
