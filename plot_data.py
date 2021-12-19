@@ -12,8 +12,8 @@ FIG_SIZE = (16, 8)
 MARKER_SIZE = 10
 
 SMALL_SIZE = 11
-MEDIUM_SIZE = 16
-BIGGER_SIZE = 12
+MEDIUM_SIZE = 18
+BIGGER_SIZE = 22
 
 orphanage_filename = "orphanage_by_time"
 
@@ -30,19 +30,15 @@ def plot_tips_by_node(df):
 # ####################### orphanage ####################################
 
 def plot_cumulative_orphanage_by_time(df, qs):
-    fig = plt.figure()
-
+    plt.figure(figsize=FIG_SIZE)
     for i, q in enumerate(qs):
-        df_per_q = orphanage_to_time(df, q, True)
+        df_per_q = orphanage_to_time(df, q, False)
         print()
         plt.plot(df_per_q['Time'], df_per_q['Orphanage'], label="q={}".format(q),
-                 linewidth=LINE_WIDTH, color=COLORS[i], marker="."
-                 )
+                 linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
 
     plt.legend(loc='best')
     plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
     plt.ylabel("Orphanage", fontsize=MEDIUM_SIZE)
-    plt.savefig(orphanage_filename + '.eps', format='eps')
+    plt.savefig(orphanage_filename + '.pdf', format='pdf')
     plt.show()
-
-    return fig

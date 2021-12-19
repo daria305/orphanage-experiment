@@ -4,6 +4,7 @@ import pandas as pd
 timeCol = "Time"
 advCol = "Tips adversary:9311"
 critical_points = {'k=2': [0.5, 0.53, 0.55], 'k=4': []}
+MAX_PARENT_AGE = np.timedelta64(1, 'm')
 
 
 # ############## grafana data ######################
@@ -65,13 +66,14 @@ def orphanage_to_time(orphanage_df, q, cut_data):
     df = orphanage_df[filter_q]
     # need to take experiment start time, before we cut orphanage
     exp_start_time = df['intervalStart'].min()
+    print(exp_start_time)
 
     # filter by interval, cut the data at the beginning and end of an experiment to get the most possible orphanage rate
     if cut_data:
         (start, stop), _ = find_the_best_orphanage(df, q, 40, 5)
         df = df[df.apply(filter_by_range, args=[start, stop], axis=1)]
 
-    return accumulate_orphans(df, exp_start_time)
+    return accumulate_orphans(df, exp_start_time,)
 
 
 def accumulate_orphans(df, experiment_start):
@@ -81,8 +83,10 @@ def accumulate_orphans(df, experiment_start):
     # issued = df['honestIssued'].rolling(30).mean()
     cum_rate = orphans/issued
 
-    duration = (df['intervalStop'] - experiment_start) / np.timedelta64(1, 'm')
-    # dur_sec = duration.apply(lambda x: x.second)
+    # can be used if all data was collected at once
+    # duration = (df['intervalStop'] - experiment_start) / np.timedelta64(1, 'm')
+    duration = df['intervalNum'] * MAX_PARENT_AGE
+
     result_df = {
         'Orphanage': cum_rate,
         'Time': duration,
