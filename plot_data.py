@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from group_data import orphanage_to_time, exclude_columns, timeCol, advCol
+from group_data import orphanage_to_time, exclude_columns, timeCol, advCol, filter_by_qs
 
 # Graphs properties
 
@@ -17,7 +17,7 @@ BIGGER_SIZE = 22
 
 orphanage_filename = "orphanage_by_time"
 
-grafana_time_diff = float(1)/6  # minutes
+
 
 
 def save_results_to_csv(df, filename):
@@ -92,7 +92,9 @@ def plot_issuance(mpsi_df):
 
 
 def plot_tips_final_times(tips_df, conf_df, k):
+    grafana_time_diff = float(1)/6  # minutes
 
+    # create x axes
     tips_df = tips_df.assign(duration=grafana_time_diff)
     tips_df['duration'] = tips_df['duration'].cumsum().apply(lambda x: int(x))
 

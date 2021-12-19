@@ -150,7 +150,11 @@ def filter_by_range(df, start_interval, stop_interval):
 
 
 def filter_by_q(df, q):
-    return df['q'] == q
+    return round(df['q'], 2) == round(q, 2)
+
+
+def filter_by_qs(df, qs):
+    return df[df['q'].isin(qs)]
 
 
 def group_by_q_per_requester(df, requester, start_interval, stop_interval):
@@ -215,7 +219,7 @@ def accumulate_orphans(df, experiment_start):
 # ################# orphanage summary ##################################
 
 def get_all_qs(orphanage_df):
-    q = orphanage_df['q'].drop_duplicates()
+    q = orphanage_df['q'].apply(round, args=[2]).drop_duplicates()
     return q.values
 
 

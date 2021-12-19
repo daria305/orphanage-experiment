@@ -2,7 +2,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from read_data import read_data
-from group_data import add_median_column,add_max_column, find_the_best_orphanage, assign_q_values, setup_rolling_count, group_tips_by_q, group_times_by_q, exclude_columns
+from group_data import add_median_column, add_max_column, find_the_best_orphanage, assign_q_values, setup_rolling_count, \
+    group_tips_by_q, group_times_by_q, exclude_columns, filter_by_qs
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times
 
@@ -66,10 +67,27 @@ def tips_per_q():
 
 def grafana_like_plots():
     paths = [DATA_PATH_K2, DATA_PATH_K4, DATA_PATH_K8]
+
+    q_for_k = {
+        2: 0.35,
+        4: 0.5,
+        8: 0.6
+    }
+
     for i, k in enumerate(Ks):
         setup_rolling_count()
         mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
         tips_df, mpsi_df, conf_df = assign_q_values(tips_df, mpsi_df, conf_df, orphanage_df)
+
+        # get data index for exp==1 => first q value to filter out all q=0 before
+        min_index = tips_df[round(tips_df['q'], 2) == round(q_for_k[k], 2)].index.min()
+        tips_df = tips_df[tips_df.index >= min_index]
+
+        min_index = conf_df[round(conf_df['q'], 2) == round(q_for_k[k], 2)].index.min()
+        conf_df = conf_df[conf_df.index >= min_index]
+
+        # tips_df = filter_by_qs(tips_df, q_for_k[k])
+        # conf_df = filter_by_qs(conf_df, q_for_k[k])
 
         plot_tips_final_times(tips_df, conf_df, k)
 
