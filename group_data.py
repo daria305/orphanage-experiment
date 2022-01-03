@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
+from datetime import timedelta
 
 timeCol = "Time"
 advCol = "Tips adversary:9311"
 critical_points = {'k=2': [0.5, 0.53, 0.55], 'k=4': []}
-MAX_PARENT_AGE = np.timedelta64(1, 'm')
+MEASUREMENTS_INTERVAL = np.timedelta64(10, 's')
 
 adversary_mpsi_name = "Message Per Second issued by adversary:9311"
 
@@ -80,6 +81,7 @@ def cut_by_issue_rate(tips_df, mpsi_df, conf_df):
     tips_df = tips_df.assign(exp=None)
     conf_df = conf_df.assign(exp=None)
     mpsi_df = mpsi_df.assign(exp=None)
+
     exp = mpsi_df[adversary_mpsi_name].apply(rolling_count)
     tips_df['exp'] = exp
     conf_df['exp'] = exp
@@ -90,25 +92,56 @@ def cut_by_issue_rate(tips_df, mpsi_df, conf_df):
     return tips_df, mpsi_df, conf_df, max_exp_num
 
 
-def rolling_count(adv_tips):
-    if adv_tips > rolling_count.min_rate:
-        if not rolling_count.previous:
-            rolling_count.previous = True
-            rolling_count.exp_count += 1
-        count = rolling_count.exp_count
-    else:
-        rolling_count.previous = False
-        count = 0
-    return count
+def assign_q_based_on_adv_rate(mpsi, tips, conf):
+    duration = 12
+    total_mps = 50
+    # tips, mpsi, conf,
+    qs = []
+    start_times = []
+    # get starting row index for each q based on adversary rate and q proportion
+
+    for _, row in mpsi.iterrows():
+        qs, start_times = calculate_q(row, total_mps, qs, start_times)
+    # insert q columns
+    mpsi = mpsi.assign(q=0.)
+    tips = tips.assign(q=0.)
+    conf = conf.assign(q=0.)
+    for start_time, q in zip(start_times, qs):
+        filtered_rows = filter_exp_rows_for_q(mpsi, start_time, duration)
+        mpsi = fill_in_previous_q_rows(mpsi, q, filtered_rows)
+
+        filtered_rows = filter_exp_rows_for_q(tips, start_time, duration)
+        tips = fill_in_previous_q_rows(tips, q, filtered_rows)
+
+        filtered_rows = filter_exp_rows_for_q(conf, start_time, duration)
+        conf = fill_in_previous_q_rows(conf, q, filtered_rows)\
+
+    return mpsi, tips, conf
 
 
-def setup_rolling_count():
-    rolling_count.exp_count = 0  # static variable
-    rolling_count.previous = False  # static variable
-    rolling_count.min_rate = 2
+def calculate_q(row, total_mps, prev_qs, start_times):
+    adv_rate = row[adversary_mpsi_name]
+    start_time = row["Time"]
+    if pd.isna(adv_rate):
+        return prev_qs, start_times
+    q = adv_rate / total_mps
+    r1 = round(q*2, 1) / 2
+    rounded_q = round(r1, 2)
+    if len(prev_qs) == 0 or rounded_q > prev_qs[-1]:
+        prev_qs.append(rounded_q)
+        start_times.append(start_time)
+    return prev_qs, start_times
 
 
-setup_rolling_count()
+def fill_in_previous_q_rows(df, q, filtered_rows):
+    df.loc[filtered_rows, 'q'] = q
+    return df
+
+
+def filter_exp_rows_for_q(df, start_time, duration_in_min):
+    end_time = start_time + timedelta(minutes=duration_in_min)
+    filter_exp_rows = (start_time <= df['Time']) & (df['Time'] < end_time)
+    return filter_exp_rows
 
 
 def group_tips_by_q(tips_df):
@@ -162,13 +195,30 @@ def filter_by_qs(df, qs):
     return df[df['q'].isin(qs)]
 
 
-def group_by_q_per_requester(df, requester, start_interval, stop_interval):
-    # req_filtered = df[df.apply(filter_by_requester, args=[requester], axis=1)]
+def group_orphanage_by_requester(df):
+    df = df.groupby(["intervalNum", "q"]).apply(aggregate_orphanage)
+    df.reset_index(inplace=True)
+    return df
+
+
+def group_by_q(df, start_interval, stop_interval):
     measure_filtered = df[df.apply(filter_by_range, args=[start_interval, stop_interval], axis=1)]
     grouped_df = measure_filtered.groupby(["q"]).apply(aggregate_by_q)
     # grouped_df.reset_index(inplace=True)
     # grouped_df = grouped_df.rename(columns={'index': 'q'})
     return grouped_df
+
+
+def aggregate_orphanage(df):
+    orphans = df['honestOrphans'].mean()
+    issued = df['honestIssued'].mean()
+
+    result_df = {
+        'Orphans': orphans,
+        'Issued': issued,
+    }
+
+    return pd.Series(result_df, index=['Orphans', 'Issued'])
 
 
 def aggregate_by_q(df):
@@ -187,13 +237,19 @@ def aggregate_by_q(df):
     return pd.Series(result_df, index=['Orphans', 'Issued', 'Orphanage', 'Interval Start', 'Interval Stop', 'Duration'])
 
 
+def orphanage_to_time_by_req(orphanage_df, q, requester):
+    filter_q = filter_by_q(orphanage_df, q)
+    df = orphanage_df[filter_q]
+    filter_r = filter_by_requester(df, requester)
+    df = orphanage_df[filter_r]
+
+
 # orphanage plot orphanage rate in time for different qs
 def orphanage_to_time(orphanage_df, q, cut_data):
     filter_q = filter_by_q(orphanage_df, q)
     df = orphanage_df[filter_q]
     # need to take experiment start time, before we cut orphanage
     exp_start_time = df['intervalStart'].min()
-    print(exp_start_time)
 
     # filter by interval, cut the data at the beginning and end of an experiment to get the most possible orphanage rate
     if cut_data:
@@ -204,15 +260,16 @@ def orphanage_to_time(orphanage_df, q, cut_data):
 
 
 def accumulate_orphans(df, experiment_start):
-    orphans = df['honestOrphans'].cumsum()
-    issued = df['honestIssued'].cumsum()
-    # orphans = df['honestOrphans'].rolling(20).mean()
-    # issued = df['honestIssued'].rolling(30).mean()
+    df = group_orphanage_by_requester(df)
+    orphans = df['Orphans'].cumsum()
+    issued = df['Issued'].cumsum()
+    # orphans = grouped_req['honestOrphans'].rolling(20).mean()
+    # issued = grouped_req['honestIssued'].rolling(30).mean()
     cum_rate = orphans/issued
 
     # can be used if all data was collected at once
     # duration = (df['intervalStop'] - experiment_start) / np.timedelta64(1, 'm')
-    duration = df['intervalNum'] * MAX_PARENT_AGE
+    duration = df['intervalNum'] * MEASUREMENTS_INTERVAL
 
     result_df = {
         'Orphanage': cum_rate,
@@ -228,6 +285,11 @@ def get_all_qs(orphanage_df):
     return q.values
 
 
+def get_all_requesters(orphanage_df):
+    q = orphanage_df['requester'].drop_duplicates()
+    return q.values
+
+
 # looks for maximum orphanage for a given q, interval start and stop
 def find_the_best_orphanage(df, q, start_limit, stop_limit):
     max_interval = df['intervalNum'].max()
@@ -238,7 +300,7 @@ def find_the_best_orphanage(df, q, start_limit, stop_limit):
     filtered_by_q = df[filter_by_q(df, q)]
     for start in range(1, start_limit):
         for stop in range(max_interval-stop_limit, max_interval):
-            grouped_df = group_by_q_per_requester(filtered_by_q, '', start, stop)
+            grouped_df = group_by_q(filtered_by_q, '', start)
             if len(grouped_df) == 0:
                 continue
             max_orph = grouped_df['Orphanage'].max()
@@ -266,7 +328,7 @@ if __name__ == "__main__":
     from read_data import read_data
     mpsi_df, mpst_df, tips_df, conf_df, orphanage_df = read_data(DATA_PATH)
 
-    df5 = group_by_q_per_requester(orphanage_df, '', 5, 40)
+    df5 = group_by_q(orphanage_df, 5, 40)
     # print("best_range, max_orphanage for 0.5:", find_the_best_orphanage(orphanage_df, 0.5, 50, 5))
     # print("best_range, max_orphanage for 0.53:", find_the_best_orphanage(orphanage_df, 0.53, 50, 5))
     # print("best_range, max_orphanage for 0.55:", find_the_best_orphanage(orphanage_df, 0.55, 50, 5))

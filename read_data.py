@@ -79,7 +79,6 @@ def save_orphanage_files_to_df(files):
 def read_grafana_file(file, type, existing_df):
     with open(file) as rf:
         df = pd.read_csv(rf, sep=',')
-    df.dropna(how='any', thresh=2, axis=0, inplace=True)
     if type == "mps":
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_mps)
     elif type == "times":

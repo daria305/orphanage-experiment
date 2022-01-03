@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 
 from group_data import orphanage_to_time, exclude_columns, timeCol, advCol, filter_by_qs
@@ -6,7 +7,7 @@ from group_data import orphanage_to_time, exclude_columns, timeCol, advCol, filt
 # Graphs properties
 
 LINE_WIDTH = 2
-COLORS = sns.color_palette()
+COLORS = sns.color_palette(n_colors=20)
 LINE_TYPE = ['-', '-.', '- -', ':']
 FIG_SIZE = (16, 8)
 MARKER_SIZE = 10
@@ -16,8 +17,6 @@ MEDIUM_SIZE = 18
 BIGGER_SIZE = 22
 
 orphanage_filename = "orphanage_by_time"
-
-
 
 
 def save_results_to_csv(df, filename):
@@ -35,10 +34,9 @@ def plot_cumulative_orphanage_by_time(df, qs, file_name):
     plt.figure(figsize=FIG_SIZE)
     for i, q in enumerate(qs):
         df_per_q = orphanage_to_time(df, q, False)
-        a = df_per_q['Time']
+        a = df_per_q['Time'] / np.timedelta64(1, 'm')
         b = df_per_q['Orphanage']
-        print(type(a), type(b))
-        plt.plot(df_per_q['Time'], df_per_q['Orphanage'], label="q={}".format(q),
+        plt.plot(a, b, label="q={}".format(q),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
 
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
@@ -115,7 +113,7 @@ def plot_tips_final_times(tips_df, conf_df, k):
 
     plt.figure(figsize=FIG_SIZE)
     for i, col in enumerate(conf_cols):
-        plt.plot(conf_df['duration'], conf_df[col], color=COLORS[i], linewidth=0, marker='.')
+        plt.plot(conf_df['duration'], conf_df[col] / float(1000000000 * 60), color=COLORS[i], linewidth=0, marker='.')
 
     plt.ylabel("Confirmation times [min]", fontsize=MEDIUM_SIZE)
     plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
@@ -161,7 +159,7 @@ def plot_times_infinite(times_dfs, k, qs):
         for j, col in enumerate(conf_cols):
             labels = ["q={}".format(q)]
             labels.extend([""]*(len(conf_cols)-1))
-            plt.plot(df['duration'], df[col], linewidth=0, label=labels[j], color=COLORS[i], marker='.', )
+            plt.plot(df['duration'], df[col] / float(1000000000 * 60), linewidth=0, label=labels[j], color=COLORS[i], marker='.', )
         plt.legend(loc='best', fontsize=MEDIUM_SIZE)
 
         plt.ylabel("Confirmation times [min]", fontsize=MEDIUM_SIZE)
