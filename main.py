@@ -1,19 +1,13 @@
-import os.path
+import pandas as pd
 
-import numpy as np
-from matplotlib import pyplot as plt
-
-from read_data import read_data, get_file_paths
-from group_data import add_median_column, add_max_column, find_the_best_orphanage, assign_q_values, \
-    group_tips_by_q, group_times_by_q, exclude_columns, filter_by_qs, add_avg_column, \
-    assign_q_based_on_adv_rate
+from read_data import read_data
+from group_data import add_median_column, add_max_column, find_the_best_orphanage, \
+    group_tips_by_q, group_times_by_q, add_avg_column, \
+    assign_q_based_on_adv_rate, get_all_qs, merge_nodes_data_with_max
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite
 
-timeCol = "Time"
-advCol = "Tips adversary:9311"
-
-DATA_PATH = "data/"
+DATA_PATH = "data"
 
 
 def data_path_orphanage(k, subdir):
@@ -22,15 +16,6 @@ def data_path_orphanage(k, subdir):
 
 def data_path_infinite(k, subdir):
     return "{}/k_{}/tippool/{}".format(DATA_PATH, k, subdir)
-
-
-def read_sub_dirs():
-    file_paths, _ = get_file_paths(DATA_PATH)
-    for path in file_paths:
-        s = path.split("/")
-        k = int(s[0].split("_")[1])
-        sub_dir = s[2]
-        SUB_DIRS[k] = SUB_DIRS[k].append(sub_dir)
 
 
 Ks = [2, 4, 8, 16]
@@ -51,12 +36,11 @@ K_CRITICAL = {
 }
 
 
-def analyse_tips(df):
+def analyse_tips(df: pd.DataFrame):
     plot_tips_by_node(df)
 
 
-def the_best_orphanage_start_and_stop_points(orphanage_df):
-    # K = 2
+def the_best_orphanage_start_and_stop_points(orphanage_df: pd.DataFrame):
     qs = [0.5, 0.53, 0.55]
     for q in qs:
         interval, o = find_the_best_orphanage(orphanage_df, q, 50, 5)
@@ -92,26 +76,16 @@ def tips_per_q():
 
 
 def grafana_like_plots():
-    paths = ["{}/k_{}".format(DATA_PATH, k) for k in Ks]
+    paths = ["{}/k_{}/orphanage/".format(DATA_PATH, k) for k in Ks]
 
     for i, k in enumerate(Ks):
         mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
-        # tips_df, mpsi_df, conf_df = assign_q_values(tips_df, mpsi_df, conf_df, orphanage_df)
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
+        mpsi_df, tips_df, conf_df = merge_nodes_data_with_max(mpsi_df, tips_df, conf_df)
 
-        # get data index for exp==1 => first q value to filter out all q=0 before
-        a = round(tips_df['q'], 2)
-        b = round(K_CRITICAL[k], 2)
-        # min_index = tips_df[a == b].index.min()
-        # tips_df = tips_df[tips_df.index >= min_index]
-        #
-        # min_index = conf_df[round(conf_df['q'], 2) == round(K_CRITICAL[k], 2)].index.min()
-        # conf_df = conf_df[conf_df.index >= min_index]
+        qs = get_all_qs(mpsi_df)
 
-        # tips_df = filter_by_qs(tips_df, q_for_k[k])
-        # conf_df = filter_by_qs(conf_df, q_for_k[k])
-
-        plot_tips_final_times(tips_df, conf_df, k)
+        plot_tips_final_times(tips_df, conf_df, k, qs)
 
 
 def infinite_tips_plots():
@@ -129,9 +103,9 @@ def infinite_tips_plots():
 def infinite_times_plots():
     ks = [2, 4, 8, 16]
     q_for_k = {
-        2:  [0.5],
-        4:  [0.5, 0.75],
-        8:  [0.75, 0.88],
+        2: [0.5],
+        4: [0.5, 0.75],
+        8: [0.75, 0.88],
         16: [0.88, 0.93]
     }
 
@@ -148,8 +122,8 @@ if __name__ == "__main__":
     # tips_df = add_stat_columns(tips_df)
 
     # the_best_orphanage_start_and_stop_points(orphanage_df)
-    orphanage_by_time()
-    tips_per_q()
+    # orphanage_by_time()
+    # tips_per_q()
     grafana_like_plots()
-    infinite_tips_plots()
-    infinite_times_plots()
+    # infinite_tips_plots()
+    # infinite_times_plots()

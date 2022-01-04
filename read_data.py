@@ -1,8 +1,10 @@
-import datetime
-import time
-
 import pandas as pd
 import os
+
+GRAFANA_TIMES_COLUMNS = ["Time", "Msg finalization adversary:9311", "Msg finalization faucet:9311",
+                         "Msg finalization peer_master:9311", "Msg finalization vanilla1:9311",
+                         "Msg finalization vanilla2:9311", "Msg finalization vanilla3:9311",
+                         "Msg finalization vanilla4:9311", "Msg finalization vanilla5:9311"]
 
 
 def get_file_paths(path_to_data):
@@ -52,14 +54,15 @@ def read_data(path_to_data):
             if file.startswith('orphanage'):
                 orphanage_file.append(os.path.join(path, file))
     # read the data to pandas
-    tips_df = save_grafana_files_to_df(tips_file, "num")
-    mpst_df = save_grafana_files_to_df(mpst_file, "mps")
-    mpsi_df = save_grafana_files_to_df(mpsi_file, "mps")
-    finalization_df = save_grafana_files_to_df(finalization_file, "times")
+    tips = save_grafana_files_to_df(tips_file, "num")
+    mpst = save_grafana_files_to_df(mpst_file, "mps")
+    mpsi = save_grafana_files_to_df(mpsi_file, "mps")
+    finalization = save_grafana_files_to_df(finalization_file, "times")
+    finalization.columns = GRAFANA_TIMES_COLUMNS
 
-    orphanage_df = save_orphanage_files_to_df(orphanage_file)
+    orphanage = save_orphanage_files_to_df(orphanage_file)
 
-    return mpsi_df, mpst_df, tips_df, finalization_df, orphanage_df
+    return mpsi, mpst, tips, finalization, orphanage
 
 
 def save_grafana_files_to_df(files, data_type):
@@ -76,14 +79,14 @@ def save_orphanage_files_to_df(files):
     return df
 
 
-def read_grafana_file(file, type, existing_df):
+def read_grafana_file(file, data_type, existing_df):
     with open(file) as rf:
         df = pd.read_csv(rf, sep=',')
-    if type == "mps":
+    if data_type == "mps":
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_mps)
-    elif type == "times":
+    elif data_type == "times":
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_times)
-    elif type == "num":
+    elif data_type == "num":
         df.loc[:, df.columns != 'Time'] = df.loc[:, df.columns != 'Time'].apply(parse_num)
     df["Time"] = pd.to_datetime(df["Time"])
 
@@ -126,7 +129,6 @@ def parse_times(cell):
     ms = mic * 1000
     sec = ms * 1000
     minute = sec * 60
-    h = minute * 60
 
     for i, val in enumerate(values):
         if pd.notna(val):
@@ -154,11 +156,4 @@ def parse_num(cell):
 if __name__ == "__main__":
     DATA_PATH = "data/orphanage/final/k_4"
     mpsi_df, mpst_df, tips_df, finalization_df, orphanage_df = read_data(DATA_PATH)
-    print(mpsi_df.head())
-    print(mpst_df.head())
-    print(mpst_df.head())
-    print(mpst_df.head())
-    print(tips_df.head())
-    print(finalization_df.head())
-    print(orphanage_df.head())
     get_file_paths(DATA_PATH)
