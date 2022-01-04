@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from group_data import orphanage_to_time, exclude_columns, TIME_COL, ADV_TIPS_COL, EXP_DURATION, filter_by_q
+from group_data import orphanage_to_time, exclude_columns, TIME_COL, ADV_TIPS_COL, EXP_DURATION, filter_by_q, \
+    ADV_FINALIZATION_COL
 
 # Graphs properties
 
@@ -86,17 +87,19 @@ def plot_grafana_times_q_for_all_k(ks, times_dfs):
 # ################## grafana like plots ############################
 
 def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
-    # x-axis is time from 0 to experiment duration TODO what if network went down before experiment finished...?
+    plot_grafana_tips_subplot_per_q(tips_df, k, qs)
+    plot_grafana_conf_subplot_per_q(conf_df, k, qs)
 
-    tips_cols = exclude_columns(tips_df, [TIME_COL, ADV_TIPS_COL, 'q', 'duration']).columns
-    conf_cols = exclude_columns(conf_df, [TIME_COL, "Msg finalization ", 'q', 'duration']).columns
+
+def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs):
     # each q has its own subplot
     qs_to_use = sorted(qs)[-5:]
     fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
     max_y_axes = 0
     for subplot_num in range(len(qs_to_use)):
+
         q = qs_to_use[subplot_num]
-        y = tips_df[filter_by_q(tips_df, q)]['Max Tips']
+        y = df[filter_by_q(df, q)]["Max Tips"]
         x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
         axes[subplot_num].set_xlabel("q={}".format(q), fontsize=SMALL_SIZE)
@@ -106,7 +109,6 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
 
     for i, ax in enumerate(axes):
         ax.set_ylim([0, max_y_axes])
-        # ax.xaxis.set_visible(False)
         if i != 0:
             # hide y-axes
             ax.yaxis.set_visible(False)
@@ -114,19 +116,37 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
             ax.set_ylabel("Tip Pool Size", fontsize=SMALL_SIZE)
 
     plt.savefig("grafana_like_tips_k" + str(k) + '.pdf', format='pdf')
-    # plt.show()
+    plt.show()
 
-    # plt.figure(figsize=FIG_SIZE)
-    # for i, col in enumerate(conf_cols):
-    #     plt.plot(conf_df['duration'], conf_df[col] / float(1000000000 * 60), color=COLORS[i], linewidth=0, marker='.')
-    #
-    # plt.ylabel("Confirmation times [min]", fontsize=MEDIUM_SIZE)
-    # plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
-    #
-    # plt.savefig("grafana_like_conf_time_k" + str(k) + '.pdf', format='pdf')
-    #
-    # plt.show()
 
+def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs):
+    # each q has its own subplot
+    qs_to_use = sorted(qs)[-5:]
+    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
+    max_y_axes = 0
+    conf_cols = exclude_columns(df, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
+
+    for subplot_num in range(len(qs_to_use)):
+        q = qs_to_use[subplot_num]
+        for i, col in enumerate(conf_cols):
+            y = df[filter_by_q(df, q)][col] / float(1000000000 * 60)
+            x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
+            axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
+            # get maximum yaxis value
+            _, max_y = axes[subplot_num].get_ylim()
+            max_y_axes = max(max_y_axes, max_y)
+        axes[subplot_num].set_xlabel("q={}".format(q), fontsize=SMALL_SIZE)
+
+    for i, ax in enumerate(axes):
+        ax.set_ylim([0, max_y_axes])
+        if i != 0:
+            # hide y-axes
+            ax.yaxis.set_visible(False)
+        else:
+            ax.set_ylabel("Confirmation times [min]", fontsize=SMALL_SIZE)
+
+    plt.savefig("grafana_like_conf_time_k" + str(k) + '.pdf', format='pdf')
+    plt.show()
 
 # ################### Infinite parent age check ###########################
 

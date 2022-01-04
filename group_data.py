@@ -37,22 +37,19 @@ def keep_only_columns(grafana_df: pd.DataFrame, cols: [str]):
     return grafana_df.loc[:, grafana_df.columns.isin(cols)]
 
 
-def merge_nodes_data_with_max(mpsi, tips, conf):
+def merge_nodes_data_with_max(mpsi, tips):
     """
     :type mpsi: pd.DataFrame
     :type tips: pd.DataFrame
-    :type conf: pd.DataFrame
     """
 
     mpsi["Max Rate"] = exclude_columns(mpsi, [TIME_COL, ADV_MPSI_COL, 'q']).max(axis=1)
     tips["Max Tips"] = exclude_columns(tips, [TIME_COL, ADV_TIPS_COL, 'q']).max(axis=1)
-    conf["Max Final Time"] = exclude_columns(conf, [TIME_COL, ADV_FINALIZATION_COL, 'q']).max(axis=1)
 
     mpsi = keep_only_columns(mpsi, ["Max Rate", "q", "Time"])
     tips = keep_only_columns(tips, ["Max Tips", "q", "Time"])
-    conf = keep_only_columns(conf, ["Max Final Time", "q", "Time"])
 
-    return mpsi, tips, conf
+    return mpsi, tips
 
 
 def assign_q_based_on_adv_rate(mpsi, tips, conf):

@@ -81,7 +81,7 @@ def grafana_like_plots():
     for i, k in enumerate(Ks):
         mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
-        mpsi_df, tips_df, conf_df = merge_nodes_data_with_max(mpsi_df, tips_df, conf_df)
+        mpsi_df, tips_df = merge_nodes_data_with_max(mpsi_df, tips_df)
 
         qs = get_all_qs(mpsi_df)
 
