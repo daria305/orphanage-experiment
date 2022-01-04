@@ -27,7 +27,7 @@ def save_results_to_csv(df, filename):
 
 def plot_tips_by_node(df):
     df.plot("Time", "Avg", linewidth=LINE_WIDTH, color=COLORS[0])
-    plt.show()
+    # plt.show()
 
 
 # ####################### orphanage ####################################
@@ -49,12 +49,15 @@ def plot_cumulative_orphanage_by_time(df: pd.DataFrame, qs, file_name):
 
 
 def plot_grafana_tips_q_for_all_k(ks, tips_dfs):
-    limit_q_top = 0.8
+    limit_q_top = 1.01
+    limit_bottom = 0.1
     plt.figure(figsize=FIG_SIZE)
     for i, df in enumerate(tips_dfs):
         filtered_df = df[df.q < limit_q_top]
+        filtered_df = filtered_df[limit_bottom < filtered_df.q]
         a = filtered_df['q']
         b = filtered_df['Tip Pool Size']
+        print(a.drop_duplicates())
         plt.plot(a, b, label="k={}".format(ks[i]),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
@@ -66,19 +69,19 @@ def plot_grafana_tips_q_for_all_k(ks, tips_dfs):
 
 
 def plot_grafana_times_q_for_all_k(ks, times_dfs):
-    limit_q_bottom = 0.3
-    limit_q_top = 0.8
+    limit_q_top = 1.01
+    limit_bottom = 0.1
     plt.figure(figsize=FIG_SIZE)
     for i, df in enumerate(times_dfs):
-        filtered_df = df[df.q > limit_q_bottom]
-        filtered_df = filtered_df[filtered_df.q < limit_q_top]
+        filtered_df = df[df.q < limit_q_top]
+        filtered_df = filtered_df[limit_bottom < filtered_df.q]
         a = filtered_df['q']
-        b = filtered_df['Max Finalization Time']
+        b = filtered_df['Median Finalization Time']
         plt.plot(a, b, label="k={}".format(ks[i]),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
     plt.xlabel("q", fontsize=MEDIUM_SIZE)
-    plt.ylabel("Max Finalization Time [min]", fontsize=MEDIUM_SIZE)
+    plt.ylabel("Finalization Time [min]", fontsize=MEDIUM_SIZE)
     plt.savefig("max_conf_time_per_q" + '.pdf', format='pdf')
 
     # plt.show()
@@ -136,7 +139,7 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
             ax.set_ylabel("Tip Pool Size", fontsize=SMALL_SIZE)
 
     plt.savefig("grafana_like_tips_k" + str(k) + '.pdf', format='pdf')
-    plt.show()
+    # plt.show()
 
 
 def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
@@ -167,7 +170,7 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
             ax.set_ylabel("Confirmation times [min]", fontsize=SMALL_SIZE)
 
     plt.savefig("grafana_like_conf_time_k" + str(k) + '.pdf', format='pdf')
-    plt.show()
+    # plt.show()
 
 # ################### Infinite parent age check ###########################
 

@@ -54,15 +54,14 @@ def orphanage_by_time():
 
 
 def tips_per_q():
-    paths = ["{}/k_{}".format(DATA_PATH, k) for k in Ks]
+    paths = ["{}/k_{}/orphanage".format(DATA_PATH, k) for k in Ks]
     tips_dfs, conf_dfs = [], []
 
     for i, k in enumerate(Ks):
         mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
         tips_df = add_median_column(tips_df)
-        conf_df = add_max_column(conf_df)
-        conf_df["Max"] = conf_df["Max"]  # convert to seconds
+        conf_df = add_median_column(conf_df)
         # group by q for the plots
         tips_by_q_df = group_tips_by_q(tips_df)
         conf_by_q_df = group_times_by_q(conf_df)
@@ -121,8 +120,8 @@ if __name__ == "__main__":
     # tips_df = add_stat_columns(tips_df)
 
     # the_best_orphanage_start_and_stop_points(orphanage_df)
-    # orphanage_by_time()
+    orphanage_by_time()
     # tips_per_q()
     grafana_like_plots()
-    # infinite_tips_plots()
-    # infinite_times_plots()
+    # infinite_tips_plots() TODO make it more readable
+    infinite_times_plots()

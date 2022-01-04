@@ -126,17 +126,17 @@ def group_times_by_q(conf: pd.DataFrame):
 
 def aggregate_tips_by_q(tips: pd.DataFrame):
     result_df = {
-        'Tip Pool Size': tips["Median"].mean(),
+        'Tip Pool Size': tips["Median"].max(),
     }
     return pd.Series(result_df, index=['Tip Pool Size'])
 
 
 def aggregate_times_by_q(conf: pd.DataFrame):
     result_df = {
-        'Max Finalization Time': conf["Max"].max(),
+        'Median Finalization Time': conf["Median"].max(),
         # 'Confirmed Message Count': conf_df["Max"].count(),
     }
-    return pd.Series(result_df, index=['Max Finalization Time'])
+    return pd.Series(result_df, index=['Median Finalization Time'])
 
 
 # ############# orphanage data grouping ####################
