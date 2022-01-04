@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from group_data import orphanage_to_time, exclude_columns, TIME_COL, ADV_TIPS_COL, EXP_DURATION, filter_by_q, \
+from group_data import orphanage_to_time, exclude_columns, TIME_COL, EXP_DURATION, filter_by_q, \
     ADV_FINALIZATION_COL
 
 # Graphs properties
@@ -87,22 +87,42 @@ def plot_grafana_times_q_for_all_k(ks, times_dfs):
 # ################## grafana like plots ############################
 
 def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
-    plot_grafana_tips_subplot_per_q(tips_df, k, qs)
-    plot_grafana_conf_subplot_per_q(conf_df, k, qs)
+    grafana_plot_k_q = {
+        2: [0.35, 0.4, 0.45, 0.5, 0.55],
+        4: [0.6, 0.65, 0.7, 0.75, 0.8],
+        8: [0.7, 0.75, 0.8, 0.9, 0.95],
+        16: [0.8, 0.85, 0.9, 0.95, 1.0],
+    }
+    grafana_plot_correct_q_values = {
+        2: {},
+        4: {},
+        8: {
+            0.9: 0.88,
+            0.95: 0.93,
+        },
+        16: {
+            0.95: 0.93,
+            1: 0.99,
+        }
+    }
+    plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k])
+    plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k])
 
 
-def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs):
+def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
     # each q has its own subplot
-    qs_to_use = sorted(qs)[-5:]
+    qs_to_use = qs
+    qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
     fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
     max_y_axes = 0
     for subplot_num in range(len(qs_to_use)):
 
         q = qs_to_use[subplot_num]
+
         y = df[filter_by_q(df, q)]["Max Tips"]
         x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
-        axes[subplot_num].set_xlabel("q={}".format(q), fontsize=SMALL_SIZE)
+        axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
         # get maximum yaxis value
         _, max_y = axes[subplot_num].get_ylim()
         max_y_axes = max(max_y_axes, max_y)
@@ -119,9 +139,10 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs):
     plt.show()
 
 
-def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs):
+def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
     # each q has its own subplot
-    qs_to_use = sorted(qs)[-5:]
+    qs_to_use = qs
+    qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
     fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
     max_y_axes = 0
     conf_cols = exclude_columns(df, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
@@ -135,7 +156,7 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs):
             # get maximum yaxis value
             _, max_y = axes[subplot_num].get_ylim()
             max_y_axes = max(max_y_axes, max_y)
-        axes[subplot_num].set_xlabel("q={}".format(q), fontsize=SMALL_SIZE)
+        axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
 
     for i, ax in enumerate(axes):
         ax.set_ylim([0, max_y_axes])

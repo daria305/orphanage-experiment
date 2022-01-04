@@ -90,6 +90,7 @@ def calculate_q(row, total_mps, prev_qs, start_times):
     if pd.isna(adv_rate):
         return prev_qs, start_times
     q = adv_rate / total_mps
+    # round q to 0.05 accuracy
     r1 = round(q*2, 1) / 2
     rounded_q = round(r1, 2)
     if len(prev_qs) == 0 or rounded_q > prev_qs[-1]:

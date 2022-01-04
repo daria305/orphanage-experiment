@@ -60,7 +60,6 @@ def tips_per_q():
     for i, k in enumerate(Ks):
         mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
-
         tips_df = add_median_column(tips_df)
         conf_df = add_max_column(conf_df)
         conf_df["Max"] = conf_df["Max"]  # convert to seconds
