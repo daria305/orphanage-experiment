@@ -3,7 +3,7 @@ import pandas as pd
 from read_data import read_data
 from group_data import add_median_column, add_max_column, find_the_best_orphanage, \
     group_tips_by_q, group_times_by_q, add_avg_column, \
-    assign_q_based_on_adv_rate, get_all_qs, merge_nodes_data_with_max
+    assign_q_based_on_adv_rate, get_all_qs, merge_nodes_data_with_max, exclude_columns, ADV_FINALIZATION_COL
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite
 
@@ -75,15 +75,25 @@ def tips_per_q():
 
 def grafana_like_plots():
     paths = ["{}/k_{}/orphanage/".format(DATA_PATH, k) for k in Ks]
+    mpsi, tips, conf, qs = [], [], [], []
+    max_tip = 0
+    max_conf = 0
 
     for i, k in enumerate(Ks):
-        mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(paths[i])
+        mpsi_df, _, tips_df, conf_df, _ = read_data(paths[i])
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
         mpsi_df, tips_df = merge_nodes_data_with_max(mpsi_df, tips_df)
+        tips.append(tips_df)
+        conf.append(conf_df)
 
-        qs = get_all_qs(mpsi_df)
+        conf_df_max = exclude_columns(conf_df, ['q', 'Time', ADV_FINALIZATION_COL]).max(axis=0).max()
 
-        plot_tips_final_times(tips_df, conf_df, k, qs)
+        # find max value to limit y-axis
+        max_tip = max(tips_df['Max Tips'].max(), max_tip)
+        max_conf = max(conf_df_max, max_conf)
+
+    for i, k in enumerate(Ks):
+        plot_tips_final_times(tips[i], conf[i], k, max_tip, max_conf)
 
 
 def infinite_tips_plots():
@@ -120,8 +130,8 @@ if __name__ == "__main__":
     # tips_df = add_stat_columns(tips_df)
 
     # the_best_orphanage_start_and_stop_points(orphanage_df)
-    orphanage_by_time()
+    # orphanage_by_time()
     # tips_per_q()
     grafana_like_plots()
     # infinite_tips_plots() TODO make it more readable
-    infinite_times_plots()
+    # infinite_times_plots()

@@ -12,6 +12,7 @@ LINE_WIDTH = 2
 COLORS = sns.color_palette(n_colors=20)
 LINE_TYPE = ['-', '-.', '- -', ':']
 FIG_SIZE = (16, 8)
+FIG_SIZE_SHORT = (16, 6)
 MARKER_SIZE = 10
 
 SMALL_SIZE = 14
@@ -33,7 +34,7 @@ def plot_tips_by_node(df):
 # ####################### orphanage ####################################
 
 def plot_cumulative_orphanage_by_time(df: pd.DataFrame, qs, file_name):
-    plt.figure(figsize=FIG_SIZE)
+    plt.figure(figsize=FIG_SIZE_SHORT)
     for i, q in enumerate(qs):
         df_per_q = orphanage_to_time(df, q, False)
         a = df_per_q['Time'] / np.timedelta64(1, 'm')
@@ -89,7 +90,7 @@ def plot_grafana_times_q_for_all_k(ks, times_dfs):
 
 # ################## grafana like plots ############################
 
-def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
+def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, tip_y_limit, conf_y_limit):
     grafana_plot_k_q = {
         2: [0.35, 0.4, 0.45, 0.5, 0.55],
         4: [0.6, 0.65, 0.7, 0.75, 0.8],
@@ -108,16 +109,15 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, qs):
             1: 0.99,
         }
     }
-    plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k])
-    plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k])
+    plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k], tip_y_limit)
+    plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k], conf_y_limit)
 
 
-def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
+def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_limit):
     # each q has its own subplot
     qs_to_use = qs
     qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
-    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
-    max_y_axes = 0
+    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE_SHORT, constrained_layout=True)
     for subplot_num in range(len(qs_to_use)):
 
         q = qs_to_use[subplot_num]
@@ -126,12 +126,9 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
         x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
         axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
-        # get maximum yaxis value
-        _, max_y = axes[subplot_num].get_ylim()
-        max_y_axes = max(max_y_axes, max_y)
+        axes[subplot_num].set_ylim([0, y_limit])
 
     for i, ax in enumerate(axes):
-        ax.set_ylim([0, max_y_axes])
         if i != 0:
             # hide y-axes
             ax.yaxis.set_visible(False)
@@ -142,12 +139,12 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
     # plt.show()
 
 
-def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
+def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_limit):
     # each q has its own subplot
+    y_limit = y_limit / float(1000000000 * 60)
     qs_to_use = qs
     qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
-    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE, constrained_layout=True)
-    max_y_axes = 0
+    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE_SHORT, constrained_layout=True)
     conf_cols = exclude_columns(df, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
 
     for subplot_num in range(len(qs_to_use)):
@@ -155,14 +152,12 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections):
         for i, col in enumerate(conf_cols):
             y = df[filter_by_q(df, q)][col] / float(1000000000 * 60)
             x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
-            axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
-            # get maximum yaxis value
-            _, max_y = axes[subplot_num].get_ylim()
-            max_y_axes = max(max_y_axes, max_y)
+            axes[subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".")
+            axes[subplot_num].set_ylim([0, y_limit])
+
         axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
 
     for i, ax in enumerate(axes):
-        ax.set_ylim([0, max_y_axes])
         if i != 0:
             # hide y-axes
             ax.yaxis.set_visible(False)
