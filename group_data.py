@@ -28,6 +28,13 @@ def add_avg_column(df: pd.DataFrame):
     return df
 
 
+def add_moving_avg_column(df: pd.DataFrame, window_size):
+    df = exclude_columns(df, [TIME_COL, ADV_FINALIZATION_COL])
+    df["Median"] = df.median(axis=1)
+    df["Moving Avg"] = df["Median"].rolling(window_size).median(axis=1)
+    return df
+
+
 def add_max_column(df: pd.DataFrame):
     df["Max"] = exclude_columns(df, [TIME_COL]).max(axis=1)
     return df
@@ -200,6 +207,13 @@ def aggregate_by_q(df: pd.DataFrame):
     return pd.Series(result_df, index=['Orphans', 'Issued', 'Orphanage', 'Interval Start', 'Interval Stop', 'Duration'])
 
 
+def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
+    startTime = tips_df_with_single_q[TIME_COL].iloc[0]
+    cutTime = startTime + timedelta(minutes=1)
+    filter_df = tips_df_with_single_q[TIME_COL] < cutTime
+    return tips_df_with_single_q[filter_df]
+
+
 # orphanage plot orphanage rate in time for different qs
 def orphanage_to_time(orphanage: pd.DataFrame, q, cut_data):
     filter_q = filter_by_q(orphanage, q)
@@ -262,6 +276,18 @@ def find_the_best_orphanage(df: pd.DataFrame, q, start_limit, stop_limit):
                 max_orphanage = max_orphan
                 best_range = (start, stop)
     return best_range, max_orphanage
+
+
+def idle_spam_time_end(df_mpsi):
+    if df_mpsi[ADV_MPSI_COL].loc[0] > 1:
+        return df_mpsi['Time'].loc[0]
+    ddf = df_mpsi[1][df_mpsi[df_mpsi[1] > 1]]
+    return ddf.loc[0]
+
+
+def cut_by_time(df, cut_time):
+    df = df[df['Time'] > cut_time]
+    return df
 
 
 if __name__ == "__main__":
