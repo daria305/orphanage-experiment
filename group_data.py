@@ -6,7 +6,9 @@ TIME_COL = "Time"
 ADV_TIPS_COL = "Tips adversary:9311"
 ADV_FINALIZATION_COL = "Msg finalization adversary:9311"
 ADV_MPSI_COL = "Message Per Second issued by adversary:9311"
+Q_COL = 'q'
 
+ADDITIONAL_COLS = [TIME_COL, ADV_TIPS_COL, Q_COL, "Max", "Median", "Max", "Moving Avg"]
 MEASUREMENTS_INTERVAL = np.timedelta64(10, 's')
 EXP_DURATION = 12
 
@@ -19,24 +21,28 @@ def exclude_columns(grafana_df: pd.DataFrame, cols: [str]):
 
 
 def add_median_column(df: pd.DataFrame):
-    df["Median"] = exclude_columns(df, [TIME_COL, ADV_TIPS_COL]).median(axis=1)
+    print(df.columns)
+    df["Median"] = exclude_columns(df, ADDITIONAL_COLS).median(axis=1)
     return df
 
 
 def add_avg_column(df: pd.DataFrame):
-    df["Avg"] = exclude_columns(df, [TIME_COL, ADV_TIPS_COL]).mean(axis=1)
+    print(df.columns)
+    df["Avg"] = exclude_columns(df, ADDITIONAL_COLS).mean(axis=1)
     return df
 
 
 def add_moving_avg_column(df: pd.DataFrame, window_size):
-    df = exclude_columns(df, [TIME_COL, ADV_FINALIZATION_COL])
+    print(df.columns)
+    df = exclude_columns(df, ADDITIONAL_COLS)
     df["Median"] = df.median(axis=1)
     df["Moving Avg"] = df["Median"].rolling(window_size).median(axis=1)
     return df
 
 
 def add_max_column(df: pd.DataFrame):
-    df["Max"] = exclude_columns(df, [TIME_COL]).max(axis=1)
+    print(df.columns)
+    df["Max"] = exclude_columns(df, ADDITIONAL_COLS).max(axis=1)
     return df
 
 
@@ -44,27 +50,7 @@ def keep_only_columns(grafana_df: pd.DataFrame, cols: [str]):
     return grafana_df.loc[:, grafana_df.columns.isin(cols)]
 
 
-def merge_nodes_data_with_max(mpsi, tips):
-    """
-    :type mpsi: pd.DataFrame
-    :type tips: pd.DataFrame
-    """
-
-    mpsi["Max Rate"] = exclude_columns(mpsi, [TIME_COL, ADV_MPSI_COL, 'q']).max(axis=1)
-    tips["Max Tips"] = exclude_columns(tips, [TIME_COL, ADV_TIPS_COL, 'q']).max(axis=1)
-
-    mpsi = keep_only_columns(mpsi, ["Max Rate", "q", "Time"])
-    tips = keep_only_columns(tips, ["Max Tips", "q", "Time"])
-
-    return mpsi, tips
-
-
-def assign_q_based_on_adv_rate(mpsi, tips, conf):
-    """
-    :type mpsi: pd.DataFrame
-    :type tips: pd.DataFrame
-    :type conf: pd.DataFrame
-    """
+def assign_q_based_on_adv_rate(mpsi: pd.DataFrame, tips: pd.DataFrame, conf: pd.DataFrame):
     duration = 12
     total_mps = 50
     # tips, mpsi, conf,
@@ -268,6 +254,7 @@ def accumulate_orphans(df: pd.DataFrame):
 
 
 def create_duration_axis(df, unit):
+    print(df.shape)
     diff = df.iloc[1, 0] - df.iloc[0, 0]
     if unit == 'minute':
         df = df.assign(duration=diff.seconds/60)
@@ -339,13 +326,3 @@ if __name__ == "__main__":
     from read_data import read_data
     mpsi_df, mpst_df, tips_df, conf_df, orphanage_df = read_data(DATA_PATH)
 
-    df5 = group_by_q(orphanage_df, 5, 40)
-    # print("best_range, max_orphanage for 0.5:", find_the_best_orphanage(orphanage_df, 0.5, 50, 5))
-    # print("best_range, max_orphanage for 0.53:", find_the_best_orphanage(orphanage_df, 0.53, 50, 5))
-    # print("best_range, max_orphanage for 0.55:", find_the_best_orphanage(orphanage_df, 0.55, 50, 5))
-    # a = orphanage_df["requester"].drop_duplicates()
-    # orphanage_to_time(orphanage_df, 0.55, False)
-    # create_orphanage_summary(orphanage_df)
-
-    get_all_qs(orphanage_df)
-    print("This is the end")

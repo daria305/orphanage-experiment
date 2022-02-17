@@ -97,7 +97,6 @@ def plot_grafana_tips_q_for_all_k(ks, tips_dfs):
         filtered_df = filtered_df[limit_bottom < filtered_df.q]
         a = filtered_df['q']
         b = filtered_df['Tip Pool Size']
-        print(a.drop_duplicates())
         plt.plot(a, b, label="k={}".format(ks[i]),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
@@ -155,17 +154,18 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, tip_y
 
 def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_limit):
     # each q has its own subplot
+    print(df.head())
+
     qs_to_use = qs
     qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
     fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE_SHORT, constrained_layout=True)
     for subplot_num in range(len(qs_to_use)):
 
         q = qs_to_use[subplot_num]
-
         df = df[filter_by_q(df, q)]
         df = create_duration_axis(df, 'minute')
         x = df['duration'].reset_index(drop=True)
-        y = df["Max Tips"]
+        y = df["Max"]
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
         axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
         axes[subplot_num].set_ylim([0, y_limit])
@@ -218,13 +218,11 @@ def plot_tips_closer_look(tips_dfs: [pd.DataFrame], ks, q_per_k):
     for i, df in enumerate(tips_dfs):
         df = create_duration_axis(df, 'second')
         x = df['duration'].reset_index(drop=True)
-        y = df["Max Tips"].reset_index(drop=True)
+        y = df["Max"].reset_index(drop=True)
 
         plt.plot(x, y, linewidth=1, label="k={}, q={}".format(ks[i], q_per_k[ks[i]]),
                  color=COLORS[i])
         m = y.max()
-        if ks[i]==8:
-            print(x,y)
         idx_max = x[y.idxmax()]
         plt.hlines(m, -20, idx_max, linestyles='--', colors=COLORS[i], linewidth=1)
         plt.scatter(idx_max, m, marker='.')
@@ -320,7 +318,6 @@ def add_lines_infinite_summary(fig, axes):
     for i, ax_row in enumerate(axes):
         for j, ax in enumerate(ax_row):
             xy = points[j]
-            print(xy)
             ax.hlines(xy[1], -20, xy[0], linestyles='--', colors='grey', linewidth=1)
             ax.vlines(xy[0], -20, xy[1], linestyles='--', colors='grey', linewidth=1)
             ax.scatter(xy[0], xy[1], marker='.')
@@ -344,7 +341,6 @@ def plot_tips_infinite(tips_dfs, k, qs, y_limit):
     for i, df in enumerate(tips_dfs):
         df = df.assign(duration=grafana_time_diff)
         df['duration'] = df['duration'].cumsum().apply(lambda x: x)
-        print(df.columns)
         tips_cols = exclude_columns(df, [TIME_COL, ADV_TIPS_COL, 'q', 'duration']).columns
         q = qs[i]
         for j, col in enumerate(tips_cols):

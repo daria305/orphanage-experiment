@@ -3,7 +3,7 @@ import pandas as pd
 from read_data import read_data
 from group_data import add_median_column, add_max_column, find_the_best_orphanage, \
     group_tips_by_q, group_times_by_q, add_avg_column, \
-    assign_q_based_on_adv_rate, get_all_qs, merge_nodes_data_with_max, exclude_columns, ADV_FINALIZATION_COL, \
+    assign_q_based_on_adv_rate, get_all_qs, exclude_columns, ADV_FINALIZATION_COL, \
     add_moving_avg_column, idle_spam_time_end, cut_by_time, filter_by_q, filter_beginning_tips, \
     extend_q_based_on_tip_pool_size, cut_out_flat_beginning
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
@@ -96,32 +96,18 @@ def grafana_like_plots():
         tips_df = add_avg_column(tips_df)
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
         tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        mpsi_df, tips_df = merge_nodes_data_with_max(mpsi_df, tips_df)
+        tips_df = add_max_column(tips_df)
         tips.append(tips_df)
         conf.append(conf_df)
 
         conf_df_max = exclude_columns(conf_df, ['q', 'Time', ADV_FINALIZATION_COL]).max(axis=0).max()
 
         # find max value to limit y-axis
-        max_tip = max(tips_df['Max Tips'].max(), max_tip)
+        max_tip = max(tips_df['Max'].max(), max_tip)
         max_conf = max(conf_df_max, max_conf)
 
     for i, k in enumerate(Ks):
         plot_tips_final_times(tips[i], conf[i], k, max_tip, max_conf)
-
-
-def infinite_tips_plots2():
-    qs = [0.5, 0.5, 0.75, 0.75, 0.88, 0.88, 0.93]
-    ks = [2, 4, 4, 8, 8, 16, 16]
-    sub_dirs = [0, 0, 1, 0, 1, 0, 1]
-    tips_dfs = []
-    max_tip = 0
-    for i, k in enumerate(ks):
-        mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(data_path_infinite(k, sub_dirs[i]))
-        tips_df = add_avg_column(tips_df)
-        tips_dfs.append(tips_df)
-        max_tip = max(tips_df["Avg"].max(), max_tip)
-    # plot_tips_infinite(tips_dfs, ks, qs)
 
 
 def infinite_times_plots():
@@ -226,18 +212,20 @@ def closer_look_at_tip_pool_size():
     mpsi, tips, conf, qs = [], [], [], []
     for i, k in enumerate(ks):
         mpsi_df, _, tips_df, conf_df, _ = read_data(paths[i])
-        tips_df = add_avg_column(tips_df)
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
+        tips_df = add_avg_column(tips_df)
+        tips_df = add_max_column(tips_df)
         tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        mpsi_df, tips_df = merge_nodes_data_with_max(mpsi_df, tips_df)
         crit = k_q[k]
         if k == 8:
             crit = 0.95
-            print(get_all_qs(tips_df))
         filter_q = filter_by_q(tips_df, crit)
         tips_df = tips_df[filter_q]
         if tips_df.empty:
             continue
+        tips_df = add_avg_column(tips_df)
+        print(tips_df.columns)
+        tips_df, _ = cut_out_flat_beginning(tips_df, conf_df)
         tips_df = filter_beginning_tips(tips_df)
         tips.append(tips_df)
 
@@ -258,7 +246,7 @@ def summary_grafana_like():
         tips_df = add_avg_column(tips_df)
         mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
         tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        mpsi_df, tips_df = merge_nodes_data_with_max(mpsi_df, tips_df)
+        tips_df = add_max_column(tips_df)
 
         crit = K_CRITICAL[k]
         if k == 8:
@@ -275,10 +263,10 @@ def summary_grafana_like():
         conf_df_max = exclude_columns(conf_df, ['q', 'Time', ADV_FINALIZATION_COL]).max(axis=0).max()
 
         # find max value to limit y-axis
-        max_tip = max(tips_df['Max Tips'].max(), max_tip)
+        max_tip = max(tips_df['Max'].max(), max_tip)
         max_conf = max(conf_df_max, max_conf)
 
-    plot_tips_final_times_summary('grafana_like_summary', tips, conf, ks, max_tip, max_conf, 12, 'Max Tips', 12)
+    plot_tips_final_times_summary('grafana_like_summary', tips, conf, ks, max_tip, max_conf, 12, 'Max', 12)
 
 
 def summary_infinite():
@@ -354,5 +342,5 @@ if __name__ == "__main__":
     summary_infinite()
     # orphanage_summary()
 
-    # orphanage tips_conf remove orange, plot on sublots only for k=2
-    #
+    # Note: orphanage tips_conf remove orange, plot on subplots only for k=2
+    # keep colors in blue
