@@ -1,11 +1,12 @@
 import pandas as pd
 
+from process_data import process_grafana_general
 from read_data import read_data
-from group_data import add_median_column, add_max_column, find_the_best_orphanage, \
+from group_data import add_median_column, add_max_column, \
     group_tips_by_q, group_times_by_q, add_avg_column, \
     assign_q_based_on_adv_rate, get_all_qs, exclude_columns, ADV_FINALIZATION_COL, \
     add_moving_avg_column, idle_spam_time_end, cut_by_time, filter_by_q, filter_beginning_tips, \
-    extend_q_based_on_tip_pool_size, cut_out_flat_beginning
+    extend_q_based_on_tip_pool_size, cut_out_flat_beginning, get_limit
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite, plot_maxage_tips, \
     plot_maxage_conf, plot_cumulative_orphanage_maxage_by_time, plot_tips_closer_look, plot_tips_final_times_summary, \
@@ -31,14 +32,6 @@ def data_path_maxage(k, subdir):
 
 
 Ks = [2, 4, 8, 16]
-SUB_DIRS = {k: [] for k in Ks}
-
-K_Q = {
-    2: [0.5, 0.53, 0.55],
-    4: [0.7, 0.75, 0.8],
-    8: [0.8, 0.88, 0.93],
-    16: [0.9, 0.94, 0.99]
-}
 
 K_CRITICAL = {
     2: 0.5,
@@ -47,22 +40,33 @@ K_CRITICAL = {
     16: 0.93
 }
 
+# parameters selection for different plots
 
-def analyse_tips(df: pd.DataFrame):
-    plot_tips_by_node(df)
+ORPHANAGE_K_Q = {
+    2: [0.5, 0.53, 0.55],
+    4: [0.7, 0.75, 0.8],
+    8: [0.8, 0.88, 0.93],
+    16: [0.9, 0.94, 0.99]
+}
 
+INFINITE_K_Q = {
+    2: [0.5],
+    4: [0.5, 0.75],
+    8: [0.75, 0.88],
+    16: [0.88, 0.93]
+}
 
-def the_best_orphanage_start_and_stop_points(orphanage_df: pd.DataFrame):
-    qs = [0.5, 0.53, 0.55]
-    for q in qs:
-        interval, o = find_the_best_orphanage(orphanage_df, q, 50, 5)
-        print("Q:,", q, "The best orphanage", o, "found for interval:", interval)
+CLOSER_LOOK_K_Q = {
+    2: 0.55,
+    4: 0.80,
+    8: 0.93,
+}
 
 
 def orphanage_by_time():
     for k in Ks:
         _, _, _, _, orphanage_df = read_data(data_path_orphanage(k, ""))
-        plot_cumulative_orphanage_by_time(orphanage_df, K_Q[k], "orphanage_k{}".format(k))
+        plot_cumulative_orphanage_by_time(orphanage_df, ORPHANAGE_K_Q[k], "orphanage_k{}".format(k))
 
 
 def tips_per_q():
@@ -93,16 +97,13 @@ def grafana_like_plots():
 
     for i, k in enumerate(Ks):
         mpsi_df, _, tips_df, conf_df, _ = read_data(paths[i])
-        tips_df = add_avg_column(tips_df)
-        mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
-        tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        tips_df = add_max_column(tips_df)
+        tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
+
         tips.append(tips_df)
         conf.append(conf_df)
 
-        conf_df_max = exclude_columns(conf_df, ['q', 'Time', ADV_FINALIZATION_COL]).max(axis=0).max()
-
         # find max value to limit y-axis
+        conf_df_max = get_limit(conf_df)
         max_tip = max(tips_df['Max'].max(), max_tip)
         max_conf = max(conf_df_max, max_conf)
 
@@ -112,77 +113,61 @@ def grafana_like_plots():
 
 def infinite_times_plots():
     ks = [2, 4, 8, 16]
-    q_for_k = {
-        2: [0.5],
-        4: [0.5, 0.75],
-        8: [0.75, 0.88],
-        16: [0.88, 0.93]
-    }
+
     conf = []
     max_conf = 0
     for i, k in enumerate(ks):
         conf_dfs = []
-        for j, q in enumerate(q_for_k[k]):
+        for j, q in enumerate(INFINITE_K_Q[k]):
             path = data_path_infinite(k, j)
-            _, _, _, conf_df, _ = read_data(path)
-            conf_df_max = exclude_columns(conf_df, ['Time', ADV_FINALIZATION_COL]).max(axis=0).max()
+            mpsi_df, _, tips_df, conf_df, _ = read_data(path)
+            tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
+
+            conf_df_max = get_limit(conf_df)
             max_conf = max(max_conf, conf_df_max)
             conf_dfs.append(conf_df)
 
         conf.append(conf_dfs)
     for i, k in enumerate(ks):
-        plot_times_infinite(conf[i], k, q_for_k[k], max_conf)
+        plot_times_infinite(conf[i], k, INFINITE_K_Q[k], max_conf)
 
 
 def infinite_tips_plots():
     ks = [2, 4, 8, 16]
-    q_for_k = {
-        2: [0.5],
-        4: [0.5, 0.75],
-        8: [0.75, 0.88],
-        16: [0.88, 0.93]
-    }
     tips = []
     max_tip = 0
     for i, k in enumerate(ks):
         tips_dfs = []
-        for j, q in enumerate(q_for_k[k]):
+        for j, q in enumerate(INFINITE_K_Q[k]):
             path = data_path_infinite(k, j)
-            _, _, tips_df, _, _ = read_data(path)
-            tips_df = add_avg_column(tips_df)
+            mpsi_df, _, tips_df, conf_df, _ = read_data(path)
+            tips_df, _ = process_grafana_general(tips_df, conf_df, mpsi_df)
+
             max_tip = max(tips_df["Avg"].max(), max_tip)
             tips_dfs.append(tips_df)
 
         tips.append(tips_dfs)
     for i, k in enumerate(ks):
-        plot_tips_infinite(tips[i], k, q_for_k[k], max_tip)
+        plot_tips_infinite(tips[i], k, INFINITE_K_Q[k], max_tip)
 
 
 def max_age_plots():
-    k = 2
     max_age = [20, 40, 60, 80, 100, 120, 180, 300]
     tips = []
     confs = []
     orphanages = []
     for i, age in enumerate(max_age):
         path = data_path_maxage(2, i)
-        mpsi, _, tips_df, conf_df, orphanage_df = read_data(path)
-        start_time = idle_spam_time_end(mpsi)
-        tips_df = cut_by_time(tips_df, start_time)
-        conf_df = cut_by_time(conf_df, start_time)
+        mpsi_df, _, tips_df, conf_df, orphanage_df = read_data(path)
+        tips_df, _ = process_grafana_general(tips_df, conf_df, mpsi_df)
 
-        tips_df = add_median_column(tips_df)
-        conf_df2 = add_moving_avg_column(conf_df, 10)
-        # conf_df = add_max_column(conf_df)
-
+        conf_df = add_moving_avg_column(conf_df, 10)
         tips.append(tips_df)
-        confs.append(conf_df2)
+        confs.append(conf_df)
         orphanages.append(orphanage_df)
 
     plot_maxage_tips(max_age, tips)
     plot_maxage_conf(max_age, confs)
-    # plot_maxage_conf()
-    # plot_maxage_orphanage()
 
 
 def orphanage_by_time_max_age():
@@ -202,65 +187,37 @@ def grafana_like_critical_only():
 
 def closer_look_at_tip_pool_size():
     ks = [2, 4, 8]
-    k_q = {
-        2: 0.55,
-        4: 0.80,
-        8: 0.93,
-    }
     paths = ["{}/k_{}/orphanage/".format(DATA_PATH, k) for k in ks]
 
     mpsi, tips, conf, qs = [], [], [], []
     for i, k in enumerate(ks):
         mpsi_df, _, tips_df, conf_df, _ = read_data(paths[i])
-        mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
-        tips_df = add_avg_column(tips_df)
-        tips_df = add_max_column(tips_df)
-        tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        crit = k_q[k]
-        if k == 8:
-            crit = 0.95
-        filter_q = filter_by_q(tips_df, crit)
-        tips_df = tips_df[filter_q]
-        if tips_df.empty:
-            continue
-        tips_df = add_avg_column(tips_df)
-        print(tips_df.columns)
-        tips_df, _ = cut_out_flat_beginning(tips_df, conf_df)
+        tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
+        tips_df = filter_by_q(tips_df, k, CLOSER_LOOK_K_Q[k])
         tips_df = filter_beginning_tips(tips_df)
         tips.append(tips_df)
 
-    plot_tips_closer_look(tips, ks, k_q)
+    plot_tips_closer_look(tips, ks, CLOSER_LOOK_K_Q)
 
 
 def summary_grafana_like():
+    ks = [2, 4, 8]
     paths = ["{}/k_{}/orphanage/".format(DATA_PATH, k) for k in Ks]
     mpsi, tips, conf, qs = [], [], [], []
     max_tip = 0
     max_conf = 0
 
-    ks = []
-    for i, k in enumerate(Ks):
-        if k == 16:
-            continue
+    for i, k in enumerate(ks):
         mpsi_df, _, tips_df, conf_df, _ = read_data(paths[i])
-        tips_df = add_avg_column(tips_df)
-        mpsi_df, tips_df, conf_df = assign_q_based_on_adv_rate(mpsi_df, tips_df, conf_df)
-        tips_df, conf_df = extend_q_based_on_tip_pool_size(tips_df, conf_df)
-        tips_df = add_max_column(tips_df)
+        tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
 
-        crit = K_CRITICAL[k]
-        if k == 8:
-            crit = 0.9
-        filter_q = filter_by_q(tips_df, crit)
-        tips_df = tips_df[filter_q]
-        filter_q = filter_by_q(conf_df, crit)
-        conf_df = conf_df[filter_q]
+        tips_df = filter_by_q(tips_df, k, K_CRITICAL[k])
+        conf_df = filter_by_q(conf_df, k, K_CRITICAL[k])
 
         tips.append(tips_df)
         conf.append(conf_df)
-        ks.append(k)
 
-        conf_df_max = exclude_columns(conf_df, ['q', 'Time', ADV_FINALIZATION_COL]).max(axis=0).max()
+        conf_df_max = get_limit(conf_df)
 
         # find max value to limit y-axis
         max_tip = max(tips_df['Max'].max(), max_tip)
@@ -271,33 +228,24 @@ def summary_grafana_like():
 
 def summary_infinite():
     ks = [2, 4, 8]
-    q_for_k = {
-        2: [0.5],
-        4: [0.5, 0.75],
-        8: [0.75, 0.88],
-        16: [0.88, 0.93]
-    }
-    q_crit_for_k = {
-        2: 0.5,
-        4: 0.75,
-        8: 0.88,
-        16: 0.93
-    }
+
     conf = []
     max_conf = 0
     tips = []
     max_tip = 0
+
     for i, k in enumerate(ks):
-        for j, q in enumerate(q_for_k[k]):
-            if q_crit_for_k[k] != q:
+        for j, q in enumerate(INFINITE_K_Q[k]):
+            if K_CRITICAL[k] != q:
                 continue
             path = data_path_infinite(k, j)
-            _, _, tips_df, conf_df, _ = read_data(path)
-            conf_df_max = exclude_columns(conf_df, ['Time', ADV_FINALIZATION_COL]).max(axis=0).max()
+            mpsi_df, _, tips_df, conf_df, _ = read_data(path)
+            tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
+
+            # calculate limit values
+            conf_df_max = get_limit(conf_df)
             max_conf = max(max_conf, conf_df_max)
-            tips_df = add_avg_column(tips_df)
             max_tip = max(tips_df["Avg"].max(), max_tip)
-            tips_df, conf_df = cut_out_flat_beginning(tips_df, conf_df)
 
             tips.append(tips_df)
             conf.append(conf_df)
@@ -324,23 +272,22 @@ def orphanage_summary():
 
     plot_orphanage_by_time_summary( 'orphanage_summary', orphanages, (sub1, sub2), ks)
 
-    #dashed lines for prev k critival
-    # solid for current K critical
+    # todo dashed lines for prev k critical
+    # todo solid for current K critical
 
 
 if __name__ == "__main__":
-    # the_best_orphanage_start_and_stop_points(orphanage_df)
-    # orphanage_by_time()
-    # tips_per_q() # useless
-    # grafana_like_plots()
-    # infinite_tips_plots()
-    # infinite_times_plots()
-    # max_age_plots()
-    # orphanage_by_time_max_age()
-    # closer_look_at_tip_pool_size()
-    # summary_grafana_like()  # ok
+    orphanage_by_time()
+    summary_grafana_like()
     summary_infinite()
-    # orphanage_summary()
+    closer_look_at_tip_pool_size()
+    grafana_like_plots()
+    infinite_tips_plots()
+    infinite_times_plots()
+    max_age_plots()
+
+    # orphanage_by_time_max_age()  # broken, to finish
+    # orphanage_summary()  # broken, to finish
 
     # Note: orphanage tips_conf remove orange, plot on subplots only for k=2
     # keep colors in blue

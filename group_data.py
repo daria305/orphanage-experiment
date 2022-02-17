@@ -11,6 +11,7 @@ Q_COL = 'q'
 ADDITIONAL_COLS = [TIME_COL, ADV_TIPS_COL, Q_COL, "Max", "Median", "Max", "Moving Avg"]
 MEASUREMENTS_INTERVAL = np.timedelta64(10, 's')
 EXP_DURATION = 12
+TOTAL_MPS = 50
 
 
 # ############## grafana data ######################
@@ -21,19 +22,16 @@ def exclude_columns(grafana_df: pd.DataFrame, cols: [str]):
 
 
 def add_median_column(df: pd.DataFrame):
-    print(df.columns)
     df["Median"] = exclude_columns(df, ADDITIONAL_COLS).median(axis=1)
     return df
 
 
 def add_avg_column(df: pd.DataFrame):
-    print(df.columns)
     df["Avg"] = exclude_columns(df, ADDITIONAL_COLS).mean(axis=1)
     return df
 
 
 def add_moving_avg_column(df: pd.DataFrame, window_size):
-    print(df.columns)
     df = exclude_columns(df, ADDITIONAL_COLS)
     df["Median"] = df.median(axis=1)
     df["Moving Avg"] = df["Median"].rolling(window_size).median(axis=1)
@@ -41,7 +39,6 @@ def add_moving_avg_column(df: pd.DataFrame, window_size):
 
 
 def add_max_column(df: pd.DataFrame):
-    print(df.columns)
     df["Max"] = exclude_columns(df, ADDITIONAL_COLS).max(axis=1)
     return df
 
@@ -51,28 +48,25 @@ def keep_only_columns(grafana_df: pd.DataFrame, cols: [str]):
 
 
 def assign_q_based_on_adv_rate(mpsi: pd.DataFrame, tips: pd.DataFrame, conf: pd.DataFrame):
-    duration = 12
-    total_mps = 50
     # tips, mpsi, conf,
     qs = []
     start_times = []
     # get starting row index for each q based on adversary rate and q proportion
-
     for _, row in mpsi.iterrows():
-        qs, start_times = calculate_q(row, total_mps, qs, start_times)
+        qs, start_times = calculate_q(row, TOTAL_MPS, qs, start_times)
     # insert q columns
     mpsi = mpsi.assign(q=0.)
     tips = tips.assign(q=0.)
     conf = conf.assign(q=0.)
     for start_time, q in zip(start_times, qs):
-        filtered_rows = filter_exp_rows_for_q(mpsi, start_time, duration)
+        filtered_rows = filter_exp_rows_for_q(mpsi, start_time, EXP_DURATION)
         mpsi = fill_in_previous_q_rows(mpsi, q, filtered_rows)
 
-        filtered_rows = filter_exp_rows_for_q(tips, start_time, duration)
+        filtered_rows = filter_exp_rows_for_q(tips, start_time, EXP_DURATION)
         tips = fill_in_previous_q_rows(tips, q, filtered_rows)
 
-        filtered_rows = filter_exp_rows_for_q(conf, start_time, duration)
-        conf = fill_in_previous_q_rows(conf, q, filtered_rows)\
+        filtered_rows = filter_exp_rows_for_q(conf, start_time, EXP_DURATION)
+        conf = fill_in_previous_q_rows(conf, q, filtered_rows)
 
     return mpsi, tips, conf
 
@@ -164,8 +158,26 @@ def filter_by_range(df: pd.DataFrame, start_interval, stop_interval):
     return start_interval < df["intervalNum"] <= stop_interval
 
 
-def filter_by_q(df: pd.DataFrame, q):
-    return round(df['q'], 2) == round(q, 2)
+# q in grafana data is created and round to 0.5
+def filter_by_q(df: pd.DataFrame, k, q):
+    q = round(q, 2)
+    real_to_approx_q = {
+        8: {
+            0.88: 0.9,
+            0.93: 0.95
+        },
+        16: {
+            0.94: 0.95,
+            0.99: 1
+        }
+    }
+    if k in real_to_approx_q:
+        if q in real_to_approx_q[k]:
+            q = real_to_approx_q[k][q]
+    filter_q = round(df['q'], 2) == q
+    df = df[filter_q]
+
+    return df
 
 
 def filter_by_qs(df: pd.DataFrame, qs):
@@ -222,14 +234,9 @@ def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
 
 
 # orphanage plot orphanage rate in time for different qs
-def orphanage_to_time(orphanage: pd.DataFrame, q, cut_data):
+def orphanage_to_time(orphanage: pd.DataFrame, q):
     filter_q = filter_by_q(orphanage, q)
     df = orphanage[filter_q]
-
-    # filter by interval, cut the data at the beginning and end of an experiment to get the most possible orphanage rate
-    if cut_data:
-        (start, stop), _ = find_the_best_orphanage(df, q, 40, 5)
-        df = df[df.apply(filter_by_range, args=[start, stop], axis=1)]
 
     return accumulate_orphans(df)
 
@@ -254,7 +261,6 @@ def accumulate_orphans(df: pd.DataFrame):
 
 
 def create_duration_axis(df, unit):
-    print(df.shape)
     diff = df.iloc[1, 0] - df.iloc[0, 0]
     if unit == 'minute':
         df = df.assign(duration=diff.seconds/60)
@@ -274,26 +280,6 @@ def get_all_qs(df: pd.DataFrame):
 def get_all_requesters(orphanage: pd.DataFrame):
     q = orphanage['requester'].drop_duplicates()
     return q.values
-
-
-# looks for maximum orphanage for a given q, interval start and stop
-def find_the_best_orphanage(df: pd.DataFrame, q, start_limit, stop_limit):
-    max_interval = df['intervalNum'].max()
-    if max_interval < stop_limit:
-        stop_limit = max_interval
-    max_orphanage = 0
-    best_range = (0, 0)
-    filtered_by_q = df[filter_by_q(df, q)]
-    for start in range(1, start_limit):
-        for stop in range(max_interval-stop_limit, max_interval):
-            grouped_df = group_by_q(filtered_by_q, '', start)
-            if len(grouped_df) == 0:
-                continue
-            max_orphan = grouped_df['Orphanage'].max()
-            if max_orphanage < max_orphan:
-                max_orphanage = max_orphan
-                best_range = (start, stop)
-    return best_range, max_orphanage
 
 
 def idle_spam_time_end(df_mpsi):
@@ -320,6 +306,9 @@ def cut_out_flat_beginning(tips, conf):
 
     return tips, conf
 
+
+def get_limit(df: pd.DataFrame):
+    return exclude_columns(df, ADDITIONAL_COLS).max(axis=0).max()
 
 if __name__ == "__main__":
     DATA_PATH = "data/orphanage/final/k_2"

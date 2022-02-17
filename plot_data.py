@@ -38,7 +38,7 @@ def plot_tips_by_node(df):
 def plot_cumulative_orphanage_by_time(df: pd.DataFrame, qs, file_name):
     plt.figure(figsize=FIG_SIZE_SHORT)
     for i, q in enumerate(qs):
-        df_per_q = orphanage_to_time(df, q, False)
+        df_per_q = orphanage_to_time(df, q)
         x = df_per_q['Time'] / np.timedelta64(1, 'm')
         y = df_per_q['Orphanage']
         plt.plot(x, y, label="q={}".format(q),
@@ -57,7 +57,7 @@ def plot_orphanage_by_time_summary(filename, dfs: [pd.DataFrame], subplot_detail
     # critical
     for i, k in enumerate(ks):
         for j, q in enumerate(subplot_details[0][k]):
-            df_per_q = orphanage_to_time(dfs[i], q, False)
+            df_per_q = orphanage_to_time(dfs[i], q)
             x = df_per_q['Time'] / np.timedelta64(1, 'm')
             y = df_per_q['Orphanage']
             plt.plot(x, y, label="k={}, q={}".format(k, q),
@@ -133,41 +133,28 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, tip_y
     grafana_plot_k_q = {
         2: [0.35, 0.4, 0.45, 0.5, 0.55],
         4: [0.6, 0.65, 0.7, 0.75, 0.8],
-        8: [0.7, 0.75, 0.8, 0.9, 0.95],
-        16: [0.8, 0.85, 0.9, 0.95, 1.0],
+        8: [0.7, 0.75, 0.8, 0.88, 0.93],
+        16: [0.8, 0.85, 0.9, 0.94, 0.99],
     }
-    grafana_plot_correct_q_values = {
-        2: {},
-        4: {},
-        8: {
-            0.9: 0.88,
-            0.95: 0.93,
-        },
-        16: {
-            0.95: 0.93,
-            1: 0.99,
-        }
-    }
-    plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k], tip_y_limit)
-    plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], grafana_plot_correct_q_values[k], conf_y_limit)
+
+    plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], tip_y_limit)
+    plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], conf_y_limit)
 
 
-def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_limit):
+def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, y_limit):
+    # qs = qs[k]
     # each q has its own subplot
-    print(df.head())
-
-    qs_to_use = qs
-    qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
-    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE_SHORT, constrained_layout=True)
-    for subplot_num in range(len(qs_to_use)):
-
-        q = qs_to_use[subplot_num]
-        df = df[filter_by_q(df, q)]
+    fig, axes = plt.subplots(nrows=1, ncols=len(qs), figsize=FIG_SIZE_SHORT, constrained_layout=True)
+    for subplot_num in range(len(qs)):
+        q = qs[subplot_num]
+        df = filter_by_q(df, k, q)
+        if df.empty:
+            continue
         df = create_duration_axis(df, 'minute')
         x = df['duration'].reset_index(drop=True)
         y = df["Max"]
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
-        axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
+        axes[subplot_num].set_xlabel("q={}".format(qs[subplot_num]), fontsize=SMALL_SIZE)
         axes[subplot_num].set_ylim([0, y_limit])
 
     for i, ax in enumerate(axes):
@@ -181,20 +168,20 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_li
     # plt.show()
 
 
-def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_limit):
+def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, y_limit):
     # each q has its own subplot
     y_limit = y_limit / float(1000000000 * 60)
-    qs_to_use = qs
-    qs_labels = [q_corrections[q] if q in q_corrections else q for q in qs_to_use]
-    fig, axes = plt.subplots(nrows=1, ncols=len(qs_to_use), figsize=FIG_SIZE_SHORT, constrained_layout=True)
+    qs_labels = [q for q in qs]
+    fig, axes = plt.subplots(nrows=1, ncols=len(qs), figsize=FIG_SIZE_SHORT, constrained_layout=True)
     conf_cols = exclude_columns(df, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
 
-    for subplot_num in range(len(qs_to_use)):
-        q = qs_to_use[subplot_num]
+    for subplot_num in range(len(qs)):
+        q = qs[subplot_num]
         for i, col in enumerate(conf_cols):
-            df = create_duration_axis(df, 'minute')
-            x = df['duration'].reset_index(drop=True)
-            y = df[filter_by_q(df, q)][col] / float(1000000000 * 60)
+            df_filtered = filter_by_q(df, k, q)
+            df_filtered = create_duration_axis(df_filtered, 'minute')
+            x = df_filtered['duration'].reset_index(drop=True)
+            y = df_filtered[col] / float(1000000000 * 60)
             axes[subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".")
             axes[subplot_num].set_ylim([0, y_limit])
 
@@ -343,12 +330,8 @@ def plot_tips_infinite(tips_dfs, k, qs, y_limit):
         df['duration'] = df['duration'].cumsum().apply(lambda x: x)
         tips_cols = exclude_columns(df, [TIME_COL, ADV_TIPS_COL, 'q', 'duration']).columns
         q = qs[i]
-        for j, col in enumerate(tips_cols):
-            labels = ["q={}".format(q)]
-            labels.extend([""]*(len(tips_cols)-1))
-            plt.plot(df['duration'], df[col], linewidth=1, label=labels[j],
-                     color=COLORS[i])
-            plt.ylim([0, 2000])
+        plt.plot(df['duration'], df['Avg'], linewidth=1, label="q={}".format(q), color=COLORS[i])
+        plt.ylim([0, 2000])
 
         plt.legend(loc='best', fontsize=MEDIUM_SIZE)
         plt.xlabel("Time [min]", fontsize=MEDIUM_SIZE)
@@ -385,7 +368,7 @@ def plot_times_infinite(times_dfs, k, qs, y_limit):
 def plot_maxage_tips(max_age, tips):
     plt.figure(figsize=FIG_SIZE)
     file_name = "maxage_tips"
-    c= 0
+    c = 0
 
     for i, df in enumerate(tips):
         age = max_age[i]
@@ -395,9 +378,9 @@ def plot_maxage_tips(max_age, tips):
         y = df["Median"]
         x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
         label = "MaxParentAge={}".format(age)
-        plt.plot(x, y, linewidth=3, label=label, color=COLORS[c])
+        plt.plot(x, y, linewidth=1, label=label, color=COLORS[c])
         # plt.ylim([0, 2000])
-        c+=1
+        c += 1
 
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
     plt.savefig(file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
@@ -416,9 +399,9 @@ def plot_maxage_conf(max_age, conf):
         y = df["Moving Avg"]
         x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
         label = "MaxParentAge={}".format(age)
-        plt.plot(x, y / float(1000000000 * 60), linewidth=3, label=label, color=COLORS[c], )
+        plt.plot(x, y / float(1000000000 * 60), linewidth=1, label=label, color=COLORS[c], )
         # plt.ylim([0, 2000])
-        c+=1
+        c += 1
 
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
     plt.savefig(file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
