@@ -4,7 +4,7 @@ import pandas as pd
 import seaborn as sns
 
 from group_data import orphanage_to_time, exclude_columns, TIME_COL, EXP_DURATION, filter_by_q, \
-    ADV_FINALIZATION_COL, ADV_TIPS_COL
+    ADV_FINALIZATION_COL, ADV_TIPS_COL, create_duration_axis
 
 # Graphs properties
 
@@ -39,9 +39,9 @@ def plot_cumulative_orphanage_by_time(df: pd.DataFrame, qs, file_name):
     plt.figure(figsize=FIG_SIZE_SHORT)
     for i, q in enumerate(qs):
         df_per_q = orphanage_to_time(df, q, False)
-        a = df_per_q['Time'] / np.timedelta64(1, 'm')
-        b = df_per_q['Orphanage']
-        plt.plot(a, b, label="q={}".format(q),
+        x = df_per_q['Time'] / np.timedelta64(1, 'm')
+        y = df_per_q['Orphanage']
+        plt.plot(x, y, label="q={}".format(q),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
 
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
@@ -51,14 +51,34 @@ def plot_cumulative_orphanage_by_time(df: pd.DataFrame, qs, file_name):
     # plt.show()
 
 
+def plot_orphanage_by_time_summary(filename, dfs: [pd.DataFrame], subplot_details, ks):
+    plt.figure(figsize=FIG_SIZE_SHORT)
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=FIG_SIZE_SHORT, constrained_layout=True)
+    # critical
+    for i, k in enumerate(ks):
+        for j, q in enumerate(subplot_details[0][k]):
+            df_per_q = orphanage_to_time(dfs[i], q, False)
+            x = df_per_q['Time'] / np.timedelta64(1, 'm')
+            y = df_per_q['Orphanage']
+            plt.plot(x, y, label="k={}, q={}".format(k, q),
+                     linewidth=LINE_WIDTH, color=COLORS[i], marker=".", linetype=LINE_TYPE[j])
+
+    # above critical
+    plt.legend(loc='best', fontsize=MEDIUM_SIZE)
+    plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
+    plt.ylabel("Orphanage", fontsize=MEDIUM_SIZE)
+    plt.savefig(filename + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
+
+
 def plot_cumulative_orphanage_maxage_by_time(dfs: [pd.DataFrame], ages):
     plt.figure(figsize=FIG_SIZE_SHORT)
     for i, df in enumerate(dfs):
         if i in [1, 3, 4, 6]:
             continue
-        b = df['honestOrphanageRate']
-        a = x = pd.Series(np.linspace(0, EXP_DURATION, num=len(b)))
-        plt.plot(a, b, label="max age={}".format(ages[i]),
+        df = create_duration_axis(df, 'minute')
+        x = df['duration']
+        y = df['honestOrphanageRate']
+        plt.plot(x, y, label="max age={}".format(ages[i]),
                  linewidth=LINE_WIDTH, color=COLORS[i], marker=".")
 
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
@@ -142,8 +162,10 @@ def plot_grafana_tips_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_li
 
         q = qs_to_use[subplot_num]
 
-        y = df[filter_by_q(df, q)]["Max Tips"]
-        x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
+        df = df[filter_by_q(df, q)]
+        df = create_duration_axis(df, 'minute')
+        x = df['duration'].reset_index(drop=True)
+        y = df["Max Tips"]
         axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
         axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
         axes[subplot_num].set_ylim([0, y_limit])
@@ -170,8 +192,9 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_li
     for subplot_num in range(len(qs_to_use)):
         q = qs_to_use[subplot_num]
         for i, col in enumerate(conf_cols):
+            df = create_duration_axis(df, 'minute')
+            x = df['duration'].reset_index(drop=True)
             y = df[filter_by_q(df, q)][col] / float(1000000000 * 60)
-            x = pd.Series(np.linspace(0, EXP_DURATION, num=len(y)))
             axes[subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".")
             axes[subplot_num].set_ylim([0, y_limit])
 
@@ -191,22 +214,31 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, q_corrections, y_li
 def plot_tips_closer_look(tips_dfs: [pd.DataFrame], ks, q_per_k):
     file_name = "tips_closer_look"
     plt.figure(figsize=FIG_SIZE)
+
     for i, df in enumerate(tips_dfs):
+        df = create_duration_axis(df, 'second')
+        x = df['duration'].reset_index(drop=True)
         y = df["Max Tips"].reset_index(drop=True)
-        x = pd.Series(np.linspace(0, 60, num=len(y)))
+
         plt.plot(x, y, linewidth=1, label="k={}, q={}".format(ks[i], q_per_k[ks[i]]),
                  color=COLORS[i])
         m = y.max()
+        if ks[i]==8:
+            print(x,y)
         idx_max = x[y.idxmax()]
         plt.hlines(m, -20, idx_max, linestyles='--', colors=COLORS[i], linewidth=1)
         plt.scatter(idx_max, m, marker='.')
-        plt.annotate('(%.0f, %.0f)' % (idx_max, m), xy=(idx_max, m+4))
+        plt.annotate(' (%.0f, %.0f)' % (idx_max, m), xy=(idx_max, m+4))
 
-    plt.xlim([0, 70])
-    plt.legend(loc='lower right', fontsize=MEDIUM_SIZE)
+    points_60 = [(60, 261), (60, 674), (60, 1099)]
+    for i, point in enumerate(points_60):
+        plt.scatter(point[0], point[1], marker='.', c=COLORS[i])
+        plt.annotate(' (%.0f, %.0f)' % (point[0], point[1]), xy=(point[0]-8, point[1]+3))
+    plt.xlim([0, 130])
+    plt.legend(loc='upper left', fontsize=MEDIUM_SIZE)
     plt.xlabel("Time [s]", fontsize=MEDIUM_SIZE)
     plt.ylabel("Tip Pool Size", fontsize=MEDIUM_SIZE)
-    plt.show()
+    # plt.show()
     plt.savefig(file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
 
 
@@ -244,8 +276,9 @@ def plot_grafana_tips_subplot_per_q_summary(filename, tips_dfs: pd.DataFrame, co
     conf_cols = exclude_columns(conf_dfs[0], [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
 
     for subplot_num, df in enumerate(tips_dfs):
+        df = create_duration_axis(df, 'minute')
+        x = df['duration'].reset_index(drop=True)
         y = df[tips_col_name]
-        x = pd.Series(np.linspace(0, exp_duration, num=len(y)))
         axes[0][subplot_num].plot(x, y, linewidth=1, color=COLORS[subplot_num])
         axes[0][subplot_num].set_xlabel("k={}, q={}".format(ks[subplot_num], qs_labels[subplot_num]), fontsize=SMALL_SIZE)
         axes[0][subplot_num].set_ylim([0, tips_limit])
@@ -253,11 +286,12 @@ def plot_grafana_tips_subplot_per_q_summary(filename, tips_dfs: pd.DataFrame, co
 
     conf_limit = conf_limit / float(1000000000 * 60)
     for subplot_num, df in enumerate(conf_dfs):
+        df = create_duration_axis(df, 'minute')
+        x = df['duration'].reset_index(drop=True)
         for i, col in enumerate(conf_cols):
             labels = ["k={}, q={}".format(ks[subplot_num], qs_labels[subplot_num])]
             labels.extend([""]*(len(conf_cols)-1))
             y = df[col] / float(1000000000 * 60)
-            x = pd.Series(np.linspace(0, exp_duration, num=len(y)))
             axes[1][subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".")
             axes[1][subplot_num].set_ylim([0, conf_limit])
             axes[1][subplot_num].set_xlim([0, x_limit])
@@ -282,7 +316,7 @@ def plot_grafana_tips_subplot_per_q_summary(filename, tips_dfs: pd.DataFrame, co
 
 
 def add_lines_infinite_summary(fig, axes):
-    points = ((37.5, 1224), (20.5, 1224), (6.3, 1380))
+    points = ((37.5, 1223), (20.6, 1223), (5.5, 1380))
     for i, ax_row in enumerate(axes):
         for j, ax in enumerate(ax_row):
             xy = points[j]
@@ -290,8 +324,11 @@ def add_lines_infinite_summary(fig, axes):
             ax.hlines(xy[1], -20, xy[0], linestyles='--', colors='grey', linewidth=1)
             ax.vlines(xy[0], -20, xy[1], linestyles='--', colors='grey', linewidth=1)
             ax.scatter(xy[0], xy[1], marker='.')
-            ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0]-6, xy[1]+12])
-
+            if i == 0:
+                if j < 2:
+                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0]-6, xy[1]+13])
+                else:
+                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0], xy[1]+13])
     return fig, axes
 
 

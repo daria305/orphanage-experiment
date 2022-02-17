@@ -91,6 +91,27 @@ def assign_q_based_on_adv_rate(mpsi, tips, conf):
     return mpsi, tips, conf
 
 
+def extend_q_based_on_tip_pool_size(tips: pd.DataFrame, conf: pd.DataFrame):
+    prev_q = 1
+    extending = False
+    for idx in reversed(tips.index):
+        q = tips.q[idx]
+        if pd.isna(tips.Avg[idx]):
+            continue
+
+        if prev_q != q != 0:
+            extending = True
+            prev_q = q
+        if tips.Avg[idx] < 10 and extending and q == 0:
+            tips.loc[idx, 'q'] = prev_q
+            conf.loc[idx, 'q'] = prev_q
+            extending = False
+        if extending:
+            tips.loc[idx, 'q'] = prev_q
+            conf.loc[idx, 'q'] = prev_q
+    return tips, conf
+
+
 def calculate_q(row, total_mps, prev_qs, start_times):
     adv_rate = row[ADV_MPSI_COL]
     start_time = row["Time"]
@@ -209,7 +230,7 @@ def aggregate_by_q(df: pd.DataFrame):
 
 def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
     startTime = tips_df_with_single_q[TIME_COL].iloc[0]
-    cutTime = startTime + timedelta(minutes=1)
+    cutTime = startTime + timedelta(minutes=2)
     filter_df = tips_df_with_single_q[TIME_COL] < cutTime
     return tips_df_with_single_q[filter_df]
 
@@ -244,6 +265,16 @@ def accumulate_orphans(df: pd.DataFrame):
         'Time': duration,
     }
     return pd.DataFrame.from_dict(result_df)
+
+
+def create_duration_axis(df, unit):
+    diff = df.iloc[1, 0] - df.iloc[0, 0]
+    if unit == 'minute':
+        df = df.assign(duration=diff.seconds/60)
+    elif unit == 'second':
+        df = df.assign(duration=diff.seconds)
+    df['duration'] = df['duration'].cumsum().apply(lambda x: x)
+    return df
 
 
 # ################# orphanage summary ##################################
@@ -288,6 +319,19 @@ def idle_spam_time_end(df_mpsi):
 def cut_by_time(df, cut_time):
     df = df[df['Time'] > cut_time]
     return df
+
+
+def cut_out_flat_beginning(tips, conf):
+    for idx in tips.index:
+        if pd.isna(tips.Avg[idx]):
+            continue
+
+        if tips.Avg[idx] >= 10:
+            tips = tips[tips.index > idx]
+            conf = conf[conf.index > idx]
+            break
+
+    return tips, conf
 
 
 if __name__ == "__main__":
