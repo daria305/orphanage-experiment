@@ -235,7 +235,7 @@ def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
 
 # orphanage plot orphanage rate in time for different qs
 def orphanage_to_time(orphanage: pd.DataFrame, q):
-    filter_q = filter_by_q(orphanage, q)
+    filter_q = round(orphanage['q'], 2) == q
     df = orphanage[filter_q]
 
     return accumulate_orphans(df)
@@ -260,6 +260,7 @@ def accumulate_orphans(df: pd.DataFrame):
     return pd.DataFrame.from_dict(result_df)
 
 
+# works only for grafana data
 def create_duration_axis(df, unit):
     diff = df.iloc[1, 0] - df.iloc[0, 0]
     if unit == 'minute':

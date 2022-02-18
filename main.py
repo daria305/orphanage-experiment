@@ -257,20 +257,22 @@ def orphanage_summary():
     sub1 = {
         2: [0.5],
         4: [0.5, 0.75],
-        8: [0.75, 0.9]
+        8: [0.75, 0.88],
+        16: [0.9, 0.94]
     }
     sub2 = {
-        2: 0.55,
-        4: 0.8,
-        8: 0.95
+        2: [0.55],
+        4: [0.8],
+        8: [0.93],
+        16: [0.99]
     }
-    ks = [2, 4, 8]
+    ks = [2, 4, 8, 16]
     orphanages = []
     for k in ks:
         _, _, _, _, orphanage_df = read_data(data_path_orphanage(k, ""))
         orphanages.append(orphanage_df)
 
-    plot_orphanage_by_time_summary( 'orphanage_summary', orphanages, (sub1, sub2), ks)
+    plot_orphanage_by_time_summary('orphanage_summary', orphanages, (sub1, sub2), ks)
 
     # todo dashed lines for prev k critical
     # todo solid for current K critical
