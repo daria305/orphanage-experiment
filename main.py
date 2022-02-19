@@ -274,9 +274,6 @@ def orphanage_summary():
 
     plot_orphanage_by_time_summary('orphanage_summary', orphanages, (sub1, sub2), ks)
 
-    # todo dashed lines for prev k critical
-    # todo solid for current K critical
-
 
 if __name__ == "__main__":
     orphanage_by_time()

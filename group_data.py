@@ -9,7 +9,7 @@ ADV_MPSI_COL = "Message Per Second issued by adversary:9311"
 Q_COL = 'q'
 
 ADDITIONAL_COLS = [TIME_COL, ADV_TIPS_COL, Q_COL, "Max", "Median", "Max", "Moving Avg"]
-MEASUREMENTS_INTERVAL = np.timedelta64(10, 's')
+
 EXP_DURATION = 12
 TOTAL_MPS = 50
 
@@ -234,14 +234,14 @@ def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
 
 
 # orphanage plot orphanage rate in time for different qs
-def orphanage_to_time(orphanage: pd.DataFrame, q):
+def orphanage_to_time(orphanage: pd.DataFrame, q, interval):
     filter_q = round(orphanage['q'], 2) == q
     df = orphanage[filter_q]
 
-    return accumulate_orphans(df)
+    return accumulate_orphans(df, interval)
 
 
-def accumulate_orphans(df: pd.DataFrame):
+def accumulate_orphans(df: pd.DataFrame, interval):
     df = group_orphanage_by_requester(df)
     orphans = df['Orphans'].cumsum()
     issued = df['Issued'].cumsum()
@@ -251,7 +251,7 @@ def accumulate_orphans(df: pd.DataFrame):
 
     # can be used if all data was collected at once
     # duration = (df['intervalStop'] - experiment_start) / np.timedelta64(1, 'm')
-    duration = df['intervalNum'] * MEASUREMENTS_INTERVAL
+    duration = df['intervalNum'] * interval
 
     result_df = {
         'Orphanage': cum_rate,
