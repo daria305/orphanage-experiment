@@ -15,6 +15,7 @@ LINE_TYPE = ['-', '-.', '- -', ':']
 
 FIG_SIZE = (16, 8)
 FIG_SIZE_SHORT = (16, 6)
+FIG_SIZE_HIGH = (12, 8)
 MARKER_SIZE = 2
 
 SMALL_SIZE = 11
@@ -85,14 +86,65 @@ def plot_orphanage_by_time_summary(filename, dfs: [pd.DataFrame], subplot_detail
         plt.savefig(SAVE_DIR + filename + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
 
 
-def plot_cumulative_orphanage_maxage_by_time(dfs: [pd.DataFrame], ages):
+def plot_maxage_summary(tips: [pd.DataFrame], confs: [pd.DataFrame], orphanages: [pd.DataFrame], ages, q):
+    filename = "maxage_summary"
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=FIG_SIZE_HIGH, constrained_layout=True)
+    skip_exp = [1, 3, 4]
+
+    # orphanage
+    labels = []
+    color_id = 0
+    for i, df in enumerate(ages):
+        df = orphanage_to_time(orphanages[i], q, MAX_AGE_MEASUREMENT_INTERVALS[i])
+        x = df['Time'] / np.timedelta64(1, 'm')
+        y = df['Orphanage']
+        axes[0].plot(x, y, linewidth=LINE_WIDTH, color=COLORS[color_id])
+        labels.append(r"$\zeta$={}s".format(ages[i]))
+        color_id += 1
+
+    axes[0].legend(labels)
+    # tips
+    color_id = 0
+    for i, df in enumerate(tips):
+        if i in skip_exp:
+            continue
+        experiment_duration = ages[i] * 10 / 60
+        y = df["Median"]
+        x = pd.Series(np.linspace(0, experiment_duration, num=len(y)))
+        label = r'$\zeta$={}'.format(ages[i])
+        axes[1].plot(x, y, linewidth=LINE_WIDTH, label=label, color=COLORS[color_id])
+        color_id += 1
+
+    # conf
+    color_id = 0
+    for i, df in enumerate(confs):
+        # [20, 40, 60, 80, 100, 120, 180, 300]
+        if i in skip_exp:
+            continue
+        experiment_duration = ages[i] * 10 / 60
+        y = df["Moving Avg"]
+        x = pd.Series(np.linspace(0, experiment_duration, num=len(y)))
+        label = r'$\zeta$={}'.format(ages[i])
+        axes[2].plot(x, y / float(1000000000 * 60), linewidth=LINE_WIDTH, label=label, color=COLORS[color_id], )
+        color_id += 1
+
+    axes[0].set_ylabel("Orphanage", fontsize=SMALL_SIZE)
+    axes[1].set_ylabel("Tip Pool Size", fontsize=SMALL_SIZE)
+    axes[2].set_ylabel("Finalization Time", fontsize=SMALL_SIZE)
+    axes[0].set_xlim([0, 35])
+    axes[1].set_xlim([0, 35])
+    axes[2].set_xlim([0, 35])
+
+    axes[2].set_xlabel(r"Attack duration [min]: $10\cdot\zeta$", fontsize=SMALL_SIZE)
+
+    plt.savefig(SAVE_DIR + filename + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
+
+
+def plot_cumulative_orphanage_maxage_by_time(dfs: [pd.DataFrame], ages, q):
     filename = "maxage_orphanage"
-    q = 0.5
     plt.figure(figsize=FIG_SIZE_SHORT)
     color_id = 0
     for i, df in enumerate(dfs):
-        if i in [1, 3, 4, 6]:
-            continue
         df = orphanage_to_time(dfs[i], q, MAX_AGE_MEASUREMENT_INTERVALS[i])
         x = df['Time'] / np.timedelta64(1, 'm')
         y = df['Orphanage']
@@ -395,16 +447,15 @@ def plot_maxage_tips(max_age, tips):
 
     for i, df in enumerate(tips):
         age = max_age[i]
-        experiment_duration = age * 10
-        if i in [1, 3, 4, 6]:
-            continue
+        experiment_duration = age * 10 / 60
         y = df["Median"]
         x = pd.Series(np.linspace(0, experiment_duration, num=len(y)))
         label = r'$\zeta$={}'.format(age)
         plt.plot(x, y, linewidth=LINE_WIDTH, label=label, color=COLORS[c])
         # plt.ylim([0, 2000])
         c += 1
-
+    plt.ylabel("Tip Pool Size", fontsize=MEDIUM_SIZE)
+    plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
     plt.savefig(SAVE_DIR + file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
 
@@ -415,17 +466,18 @@ def plot_maxage_conf(max_age, conf):
     c = 0
     for i, df in enumerate(conf):
         # [20, 40, 60, 80, 100, 120, 180, 300]
-        if i in [1, 3, 4, 6]:
+        if i in [1, 3, 4]:
             continue
         age = max_age[i]
-        experiment_duration = age * 10
+        experiment_duration = age * 10 / 60
         y = df["Moving Avg"]
         x = pd.Series(np.linspace(0, experiment_duration, num=len(y)))
         label = r'$\zeta$={}'.format(age)
         plt.plot(x, y / float(1000000000 * 60), linewidth=LINE_WIDTH, label=label, color=COLORS[c], )
         # plt.ylim([0, 2000])
         c += 1
-
+    plt.ylabel("Confirmation times [min]", fontsize=MEDIUM_SIZE)
+    plt.xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
     plt.legend(loc='best', fontsize=MEDIUM_SIZE)
     plt.savefig(SAVE_DIR + file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
 

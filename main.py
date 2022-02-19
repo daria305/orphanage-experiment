@@ -10,7 +10,7 @@ from group_data import add_median_column, add_max_column, \
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite, plot_maxage_tips, \
     plot_maxage_conf, plot_cumulative_orphanage_maxage_by_time, plot_tips_closer_look, plot_tips_final_times_summary, \
-    plot_infinite_summary, plot_orphanage_by_time_summary
+    plot_infinite_summary, plot_orphanage_by_time_summary, plot_maxage_summary
 
 DATA_PATH = "data"
 
@@ -153,6 +153,8 @@ def infinite_tips_plots():
 
 def max_age_plots():
     max_age = [20, 40, 60, 80, 100, 120, 180, 300]
+    q = 0.5
+
     tips = []
     confs = []
     orphanages = []
@@ -168,17 +170,8 @@ def max_age_plots():
 
     plot_maxage_tips(max_age, tips)
     plot_maxage_conf(max_age, confs)
-
-
-def orphanage_by_time_max_age():
-    max_age = [20, 40, 60, 80, 100, 120, 180, 300]
-    i = 0
-    ors = []
-    for age in max_age:
-        _, _, _, _, orphanage_df = read_data(data_path_maxage(2, i))
-        ors.append(orphanage_df)
-        i += 1
-    plot_cumulative_orphanage_maxage_by_time(ors, max_age)
+    plot_cumulative_orphanage_maxage_by_time(orphanages, max_age, q)
+    plot_maxage_summary(tips, confs, orphanages, max_age, q)
 
 
 def grafana_like_critical_only():
@@ -276,17 +269,17 @@ def orphanage_summary():
 
 
 if __name__ == "__main__":
+    # appendix
+    grafana_like_plots()
     orphanage_by_time()
+    infinite_tips_plots()
+    infinite_times_plots()
+    # # base
+    max_age_plots()
     summary_grafana_like()
     summary_infinite()
     closer_look_at_tip_pool_size()
-    grafana_like_plots()
-    infinite_tips_plots()
-    infinite_times_plots()
-    max_age_plots()
+    orphanage_summary()
 
-    # orphanage_by_time_max_age()  # broken, to finish
-    # orphanage_summary()  # broken, to finish
-
-    # Note: orphanage tips_conf remove orange, plot on subplots only for k=2
-    # keep colors in blue
+    # Note: grafanalike tips_conf two subplots: upper - tips, lower - conf,  remove orange(second from left),
+#       plot on subplots only for k=2, tips+conf comparison, limit y axes compress it
