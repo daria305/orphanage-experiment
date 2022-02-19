@@ -10,7 +10,7 @@ from group_data import add_median_column, add_max_column, \
 from plot_data import plot_tips_by_node, plot_cumulative_orphanage_by_time, plot_grafana_tips_q_for_all_k, \
     plot_grafana_times_q_for_all_k, plot_tips_final_times, plot_tips_infinite, plot_times_infinite, plot_maxage_tips, \
     plot_maxage_conf, plot_cumulative_orphanage_maxage_by_time, plot_tips_closer_look, plot_tips_final_times_summary, \
-    plot_infinite_summary, plot_orphanage_by_time_summary, plot_maxage_summary
+    plot_infinite_summary, plot_orphanage_by_time_summary, plot_maxage_summary, plot_grafana_q_variations_summary
 
 DATA_PATH = "data"
 
@@ -268,18 +268,34 @@ def orphanage_summary():
     plot_orphanage_by_time_summary('orphanage_summary', orphanages, (sub1, sub2), ks)
 
 
+def grafana_like_q_variations():
+    path = "{}/k_2/orphanage/".format(DATA_PATH)
+    k = 2
+    qs = [0.35, 0.45, 0.5, 0.55]
+    max_tip = 0
+    max_conf = 0
+
+    mpsi_df, _, tips_df, conf_df, _ = read_data(path)
+    tips_df, conf_df = process_grafana_general(tips_df, conf_df, mpsi_df)
+
+    # find max value to limit y-axis
+    conf_df_max = get_limit(conf_df)
+    max_tip = max(tips_df['Max'].max(), max_tip)
+    max_conf = max(conf_df_max, max_conf)
+
+    plot_grafana_q_variations_summary(tips_df, conf_df, qs, k, max_tip, max_conf)
+
+
 if __name__ == "__main__":
     # appendix
     grafana_like_plots()
     orphanage_by_time()
     infinite_tips_plots()
     infinite_times_plots()
-    # # base
+    # base
     max_age_plots()
     summary_grafana_like()
     summary_infinite()
     closer_look_at_tip_pool_size()
     orphanage_summary()
-
-    # Note: grafanalike tips_conf two subplots: upper - tips, lower - conf,  remove orange(second from left),
-#       plot on subplots only for k=2, tips+conf comparison, limit y axes compress it
+    grafana_like_q_variations()

@@ -8,7 +8,7 @@ from group_data import orphanage_to_time, exclude_columns, TIME_COL, EXP_DURATIO
 
 # Graphs properties
 
-LINE_WIDTH = 1
+LINE_WIDTH = 2
 COLORS = sns.color_palette(n_colors=8)
 # COLORS = sns.hls_palette(10, h=0.5)
 LINE_TYPE = ['-', '-.', '- -', ':']
@@ -16,11 +16,10 @@ LINE_TYPE = ['-', '-.', '- -', ':']
 FIG_SIZE = (16, 8)
 FIG_SIZE_SHORT = (16, 6)
 FIG_SIZE_HIGH = (12, 8)
-MARKER_SIZE = 2
+MARKER_SIZE = 3
 
-SMALL_SIZE = 11
-MEDIUM_SIZE = 14
-BIGGER_SIZE = 22
+SMALL_SIZE = 14
+MEDIUM_SIZE = 16
 
 orphanage_filename = "orphanage_by_time"
 SAVE_FORMAT = 'pdf'
@@ -246,7 +245,6 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, y_limit):
     filename = "grafana_like_conf_time_k"
     # each q has its own subplot
     y_limit = y_limit / float(1000000000 * 60)
-    qs_labels = [q for q in qs]
     fig, axes = plt.subplots(nrows=1, ncols=len(qs), figsize=FIG_SIZE_SHORT, constrained_layout=True)
     conf_cols = exclude_columns(df, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
 
@@ -260,7 +258,7 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, y_limit):
             axes[subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".", markersize=MARKER_SIZE)
             axes[subplot_num].set_ylim([0, y_limit])
 
-        axes[subplot_num].set_xlabel("q={}".format(qs_labels[subplot_num]), fontsize=SMALL_SIZE)
+        axes[subplot_num].set_xlabel("q={}".format(qs[subplot_num]), fontsize=SMALL_SIZE)
 
     for i, ax in enumerate(axes):
         if i != 0:
@@ -271,6 +269,38 @@ def plot_grafana_conf_subplot_per_q(df: pd.DataFrame, k, qs, y_limit):
 
     plt.savefig(SAVE_DIR + filename + str(k) + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
     # plt.show()
+
+
+def plot_grafana_q_variations_summary(tips: pd.DataFrame, confs: pd.DataFrame, qs: [float], k: int, tips_limit: int,
+                                      conf_limit: int):
+    filename = "grafana_like_q_vary_summary"
+    fig, axes = plt.subplots(nrows=2, ncols=len(qs), figsize=FIG_SIZE, constrained_layout=True)
+
+    for subplot_num in range(len(qs)):
+        q = qs[subplot_num]
+        filtered_df = filter_by_q(tips, k, q)
+        filtered_df = create_duration_axis(filtered_df, 'minute')
+        x = filtered_df['duration'].reset_index(drop=True)
+        y = filtered_df["Max"]
+        axes[0][subplot_num].plot(x, y, linewidth=LINE_WIDTH, color=COLORS[subplot_num])
+        axes[0][subplot_num].set_ylim([0, tips_limit])
+
+    conf_cols = exclude_columns(confs, [ADV_FINALIZATION_COL, TIME_COL, 'q']).columns
+    conf_limit = conf_limit / float(1000000000 * 60)
+
+    for subplot_num, q in enumerate(qs):
+        for i, col in enumerate(conf_cols):
+            df_filtered = filter_by_q(confs, k, q)
+            df_filtered = create_duration_axis(df_filtered, 'minute')
+            x = df_filtered['duration'].reset_index(drop=True)
+            y = df_filtered[col] / float(1000000000 * 60)
+            axes[1][subplot_num].plot(x, y, linewidth=0, color=COLORS[subplot_num], marker=".", markersize=MARKER_SIZE)
+            axes[1][subplot_num].set_ylim([0, conf_limit])
+        axes[1][subplot_num].set_xlabel("k=2, q={}".format(qs[subplot_num]), fontsize=SMALL_SIZE)
+
+    axes[0][0].set_ylabel("Tip Pool Size", fontsize=SMALL_SIZE)
+    axes[1][0].set_ylabel("Confirmation times [min]", fontsize=SMALL_SIZE)
+    plt.savefig(SAVE_DIR + filename + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
 
 
 def plot_tips_closer_look(tips_dfs: [pd.DataFrame], ks, q_per_k):
