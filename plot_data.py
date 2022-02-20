@@ -305,30 +305,51 @@ def plot_grafana_q_variations_summary(tips: pd.DataFrame, confs: pd.DataFrame, q
 def plot_tips_closer_look(tips_dfs: [pd.DataFrame], ks, q_per_k):
     file_name = "tips_closer_look"
     plt.figure(figsize=FIG_SIZE)
-
+    points_60 = []
+    points_120 = []
     for i, df in enumerate(tips_dfs):
         df = create_duration_axis(df, 'second')
         x = df['duration'].reset_index(drop=True)
         y = df["Max"].reset_index(drop=True)
-
         plt.plot(x, y, linewidth=LINE_WIDTH, label="k={}, q={}".format(ks[i], q_per_k[ks[i]]),
                  color=COLORS[i])
-        m = y.max()
-        idx_max = x[y.idxmax()]
-        plt.hlines(m, -20, idx_max, linestyles='--', colors=COLORS[i], linewidth=LINE_WIDTH)
-        plt.scatter(idx_max, m, marker='.')
-        plt.annotate(' (%.0f, %.0f)' % (idx_max, m), xy=(idx_max, m + 4))
 
-    points_60 = [(60, 261), (60, 674), (60, 1099)]
+        idx = df.loc[df['duration'] == 60].index.values
+        points_60.append((60, df.loc[idx, 'Max']))
+        idx = df.loc[df['duration'] == 120].index.values
+        points_120.append((120, df.loc[idx, 'Max']))
+
     for i, point in enumerate(points_60):
         plt.scatter(point[0], point[1], marker='.', c=COLORS[i])
         plt.annotate(' (%.0f, %.0f)' % (point[0], point[1]), xy=(point[0] - 8, point[1] + 3))
+
+    for i, point in enumerate(points_120):
+        plt.scatter(point[0], point[1], marker='.', c=COLORS[i])
+        plt.annotate(' (%.0f, %.0f)' % (point[0], point[1]), xy=(point[0], point[1] - 40))
+
+    total_rate = 50
+
+    for i, k in enumerate(ks):
+        x60 = 60
+        x120 = 120
+        p60 = theoretical_tip_pool_size(x60, k, q_per_k[k], total_rate)
+        p120 = theoretical_tip_pool_size(x120, k, q_per_k[k], total_rate)
+        plt.scatter(x60, p60, marker='.', c=COLORS[i])
+        plt.scatter(x120, p120, marker='.', c=COLORS[i])
+        plt.plot([0, x120], [0, p120], linewidth=1, color=COLORS[i], linestyle=':')
+
+    plt.plot([-1, -1], [-1, -1], linewidth=1, color='k', linestyle=':', marker='.', label='theoretical values')
     plt.xlim([0, 130])
+    plt.ylim([0, 1800])
     plt.legend(loc='upper left', fontsize=MEDIUM_SIZE)
     plt.xlabel("Time [s]", fontsize=MEDIUM_SIZE)
     plt.ylabel("Tip Pool Size", fontsize=MEDIUM_SIZE)
     # plt.show()
     plt.savefig(SAVE_DIR + file_name + '.' + SAVE_FORMAT, format=SAVE_FORMAT)
+
+
+def theoretical_tip_pool_size(t, k, q: float, total_rate):
+    return t * total_rate *(q - (1-q)*(k-1)) + 1
 
 
 def plot_tips_final_times_summary(filename, tips_dfs: [pd.DataFrame], conf_dfs: [pd.DataFrame], ks, tip_y_limit,
