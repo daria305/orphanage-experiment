@@ -228,7 +228,7 @@ def aggregate_by_q(df: pd.DataFrame):
 
 def filter_beginning_tips(tips_df_with_single_q: pd.DataFrame):
     startTime = tips_df_with_single_q[TIME_COL].iloc[0]
-    cutTime = startTime + timedelta(minutes=2)
+    cutTime = startTime + timedelta(seconds=130)
     filter_df = tips_df_with_single_q[TIME_COL] < cutTime
     return tips_df_with_single_q[filter_df]
 
@@ -267,7 +267,7 @@ def create_duration_axis(df, unit):
         df = df.assign(duration=diff.seconds/60)
     elif unit == 'second':
         df = df.assign(duration=diff.seconds)
-    df['duration'] = df['duration'].cumsum().apply(lambda x: x)
+    df['duration'] = df['duration'].cumsum().apply(lambda x: x-diff.seconds)
     return df
 
 
