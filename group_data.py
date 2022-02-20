@@ -263,11 +263,14 @@ def accumulate_orphans(df: pd.DataFrame, interval):
 # works only for grafana data
 def create_duration_axis(df, unit):
     diff = df.iloc[1, 0] - df.iloc[0, 0]
+    dur = 0
     if unit == 'minute':
-        df = df.assign(duration=diff.seconds/60)
+        dur = diff.seconds/60
+        df = df.assign(duration=dur)
     elif unit == 'second':
-        df = df.assign(duration=diff.seconds)
-    df['duration'] = df['duration'].cumsum().apply(lambda x: x-diff.seconds)
+        dur = diff.seconds
+        df = df.assign(duration=dur)
+    df['duration'] = df['duration'].cumsum().apply(lambda x: x - dur)
     return df
 
 

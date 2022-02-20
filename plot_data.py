@@ -9,6 +9,7 @@ from group_data import orphanage_to_time, exclude_columns, TIME_COL, EXP_DURATIO
 # Graphs properties
 
 LINE_WIDTH = 2
+LINE_WIDTH_THIN = 1
 COLORS = sns.color_palette(n_colors=8)
 # COLORS = sns.hls_palette(10, h=0.5)
 LINE_TYPE = ['-', '-.', '- -', ':']
@@ -76,7 +77,7 @@ def plot_orphanage_by_time_summary(filename, dfs: [pd.DataFrame], subplot_detail
                 df_per_q = orphanage_to_time(dfs[i], q, MEASUREMENTS_INTERVAL)
                 x = df_per_q['Time'] / np.timedelta64(1, 'm')
                 y = df_per_q['Orphanage']
-                axes[subplot_num].plot(x, y, linewidth=1, color=COLORS[i], label="k={}, q={}".format(k, q),
+                axes[subplot_num].plot(x, y, linewidth=LINE_WIDTH, color=COLORS[i], label="k={}, q={}".format(k, q),
                              linestyle=line_style)
         axes[subplot_num].legend()
         axes[subplot_num].set_xlabel("Attack duration [min]", fontsize=MEDIUM_SIZE)
@@ -336,9 +337,9 @@ def plot_tips_closer_look(tips_dfs: [pd.DataFrame], ks, q_per_k):
         p120 = theoretical_tip_pool_size(x120, k, q_per_k[k], total_rate)
         plt.scatter(x60, p60, marker='.', c=COLORS[i])
         plt.scatter(x120, p120, marker='.', c=COLORS[i])
-        plt.plot([0, x120], [0, p120], linewidth=1, color=COLORS[i], linestyle=':')
+        plt.plot([0, x120], [0, p120], linewidth=LINE_WIDTH_THIN, color=COLORS[i], linestyle=':')
 
-    plt.plot([-1, -1], [-1, -1], linewidth=1, color='k', linestyle=':', marker='.', label='theoretical values')
+    plt.plot([-1, -1], [-1, -1], linewidth=LINE_WIDTH_THIN, color='k', linestyle=':', marker='.', label='theoretical values')
     plt.xlim([0, 130])
     plt.ylim([0, 1800])
     plt.legend(loc='upper left', fontsize=MEDIUM_SIZE)
@@ -433,8 +434,8 @@ def add_lines_infinite_summary(fig, axes):
     for i, ax_row in enumerate(axes):
         for j, ax in enumerate(ax_row):
             xy = points[j]
-            ax.hlines(xy[1], -20, xy[0], linestyles='--', colors='grey', linewidth=1)
-            ax.vlines(xy[0], -20, xy[1], linestyles='--', colors='grey', linewidth=1)
+            ax.hlines(xy[1], -20, xy[0], linestyles='--', colors='grey', linewidth=LINE_WIDTH_THIN)
+            ax.vlines(xy[0], -20, xy[1], linestyles='--', colors='grey', linewidth=LINE_WIDTH_THIN)
             ax.scatter(xy[0], xy[1], marker='.')
             if i == 0:
                 if j < 2:
