@@ -220,7 +220,7 @@ def summary_grafana_like():
 
 
 def summary_infinite():
-    ks = [2, 4, 8]
+    ks = [2, 4, 8, 16]
 
     conf = []
     max_conf = 0

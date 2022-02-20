@@ -208,7 +208,6 @@ def plot_tips_final_times(tips_df: pd.DataFrame, conf_df: pd.DataFrame, k, tip_y
         8: [0.7, 0.75, 0.8, 0.88, 0.93],
         16: [0.8, 0.85, 0.9, 0.94, 0.99],
     }
-
     plot_grafana_tips_subplot_per_q(tips_df, k, grafana_plot_k_q[k], tip_y_limit)
     plot_grafana_conf_subplot_per_q(conf_df, k, grafana_plot_k_q[k], conf_y_limit)
 
@@ -351,6 +350,7 @@ def plot_infinite_summary(filename, tips_dfs: [pd.DataFrame], conf_dfs: [pd.Data
         2: 0.5,
         4: 0.75,
         8: 0.88,
+        16: 0.94
     }
     fig, axes = plot_grafana_tips_subplot_per_q_summary(filename, tips_dfs, conf_dfs, ks, grafana_plot_correct_q_values,
                                                         tip_y_limit, conf_y_limit, x_limit, tips_col_name, exp_duration)
@@ -408,7 +408,7 @@ def plot_grafana_tips_subplot_per_q_summary(filename, tips_dfs: pd.DataFrame, co
 
 
 def add_lines_infinite_summary(fig, axes):
-    points = ((37.5, 1223), (20.6, 1223), (5.5, 1380))
+    points = ((37.5, 1223), (20.6, 1223), (5.5, 1380), (3.2, 1050))
     for i, ax_row in enumerate(axes):
         for j, ax in enumerate(ax_row):
             xy = points[j]
@@ -417,9 +417,9 @@ def add_lines_infinite_summary(fig, axes):
             ax.scatter(xy[0], xy[1], marker='.')
             if i == 0:
                 if j < 2:
-                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0] - 6, xy[1] + 13])
+                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0] - 8, xy[1] + 13])
                 else:
-                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0], xy[1] + 13])
+                    ax.annotate('(%.0f, %.0f)' % xy, xy=[xy[0], xy[1] + 15])
     return fig, axes
 
 
